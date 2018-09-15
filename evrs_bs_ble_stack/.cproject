@@ -78,10 +78,10 @@
 								<option id="com.ti.ccstudio.buildDefinitions.TMS470_16.9.compilerID.DEFINE.1724489198" name="Pre-define NAME (--define, -D)" superClass="com.ti.ccstudio.buildDefinitions.TMS470_16.9.compilerID.DEFINE" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="USE_ICALL"/>
 									<listOptionValue builtIn="false" value="FLASH_ROM_BUILD"/>
-									<listOptionValue builtIn="false" value="POWER_SAVING"/>
+									<listOptionValue builtIn="false" value="xPOWER_SAVING"/>
 									<listOptionValue builtIn="false" value="OSAL_SNV=1"/>
 									<listOptionValue builtIn="false" value="INCLUDE_AES_DECRYPT"/>
-									<listOptionValue builtIn="false" value="xPM_DISABLE_PWRDOWN"/>
+									<listOptionValue builtIn="false" value="PM_DISABLE_PWRDOWN"/>
 									<listOptionValue builtIn="false" value="xTESTMODES"/>
 									<listOptionValue builtIn="false" value="xTEST_BLEBOARD"/>
 									<listOptionValue builtIn="false" value="OSAL_CBTIMER_NUM_TASKS=1"/>

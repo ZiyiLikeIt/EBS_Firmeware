@@ -112,6 +112,11 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>Drivers/TL</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>Drivers/TRNG</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -247,6 +252,11 @@
 			<locationURI>PARENT-1-PROJECT_IMPORT_LOC/config/ccs_linker_defines.cmd</locationURI>
 		</link>
 		<link>
+			<name>Drivers/Display/Display.c</name>
+			<type>1</type>
+			<locationURI>TI_RTOS_DRIVERS_BASE/ti/mw/display/Display.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/Display/Display.h</name>
 			<type>1</type>
 			<locationURI>TI_RTOS_DRIVERS_BASE/ti/mw/display/Display.h</locationURI>
@@ -315,6 +325,41 @@
 			<name>Drivers/SPI/SPICC26XXDMA.h</name>
 			<type>1</type>
 			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/spi/SPICC26XXDMA.h</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_data.h</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/inc/npi_data.h</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_rxbuf.c</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/npi_rxbuf.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_rxbuf.h</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/inc/npi_rxbuf.h</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_tl.c</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/npi_tl.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_tl.h</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/inc/npi_tl.h</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_tl_uart.c</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/npi_tl_uart.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/TL/npi_tl_uart.h</name>
+			<type>1</type>
+			<locationURI>SRC_COMMON/npi/src/inc/npi_tl_uart.h</locationURI>
 		</link>
 		<link>
 			<name>Drivers/TRNG/TRNGCC26XX.c</name>

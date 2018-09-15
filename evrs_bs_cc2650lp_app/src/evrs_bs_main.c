@@ -43,7 +43,11 @@
 #include "board_led.h"
 #include "board_display.h"
 #include "evrs_bs_rssi.h"
-//#include <ti/mw/display/Display.h>
+
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#include "tl.h"
+#endif //TL
+
 #include "board.h"
 
 #include "ble_user_config.h"
@@ -130,15 +134,17 @@
 // GATT Params
 // EVRS Profile Service UUID
 #define EVRSPROFILE_SERV_UUID 			0xAFF0
-#define EVRSPROFILE_SYSID_UUID         	0xAFF2
-#define EVRSPROFILE_DEVID_UUID      	0xAFF4
-#define EVRSPROFILE_CMD_UUID        	0xAFF8
-#define EVRSPROFILE_DATA_UUID         	0xAFFE
+#define EVRSPROFILE_CMD_UUID        	0xAFF2
+#define EVRSPROFILE_DATA_UUID         	0xAFF4
 
-#define ETX_ADTYPE_DEST				0xAF
-#define ETX_ADTYPE_DEVID			0xAE
-#define ETX_DEVID_LEN 				4
-#define ETX_DEVID_PREFIX			0x95
+#define ETX_ADTYPE_DEST			0xAF
+#define ETX_ADTYPE_DEVID		0xAE
+#define ETX_DEVID_LEN 			4
+#define ETX_DEVID_PREFIX		0x95
+
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#define APP_TL_BUFF_SIZE   		150
+#endif //TL
 
 // Application states
 typedef enum {
@@ -293,6 +299,11 @@ TargetInfo_t* pConnectingSlot = NULL;
 
 Semaphore_Handle targetConnSem;
 
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+//used to store data read from transport layer
+static uint8_t appRxBuf[APP_TL_BUFF_SIZE];
+#endif //TL
+
 // test
 int tcounter = 0;
 
@@ -344,6 +355,11 @@ static void EBS_updateTargetList(uint8_t* txID);
 
 static uint32_t EBS_parseDevID(uint8_t* devID);
 
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+//TL packet parser
+static void EBS_TLpacketParser(void);
+#endif //TL
+
 /*********************************************************************
  * PROFILE CALLBACKS
  */
@@ -358,6 +374,11 @@ static gapBondCBs_t EBS_bondCB = {
 		EBS_pairStateCB                  // Pairing state callback
 		};
 
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+static TLCBs_t EBS_TLCBs = {
+		EBS_TLpacketParser // parse data read from transport layer
+};
+#endif
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
@@ -426,6 +447,7 @@ static void EBS_init(void) {
 	Board_initKeys(EBS_keyChangeHandler);
 	Board_initLEDs();
 	Board_Display_Init();
+	//UART_init();
 
 	// Initialize internal data
 	for (i = 0; i < MAX_NUM_BLE_CONNS; i++)
@@ -492,6 +514,12 @@ static void EBS_init(void) {
 
 	targetConnSem = Semaphore_create(0, NULL, NULL);
 	Board_ledControl(BOARD_LED_ID_G, BOARD_LED_STATE_FLASH, 300);
+
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+	//initialize and pass information to TL
+	TLinit(&sem, &EBS_TLCBs, TRANSPORT_TX_DONE_EVT,
+			TRANSPORT_RX_EVT, MRDY_EVT);
+#endif //TL
 }
 
 /*********************************************************************
@@ -515,6 +543,11 @@ static void EBS_taskFxn(UArg a0, UArg a1) {
 		// message is queued to the message receive queue of the thread or when
 		// ICall_signal() function is called onto the semaphore.
 		ICall_Errno errno = ICall_wait(ICALL_TIMEOUT_FOREVER);
+
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+		//TL handles driver events. this must be done first
+		TL_handleISRevent();
+#endif //TL
 
 		if (errno == ICALL_ERRNO_SUCCESS)
 		{
@@ -1049,20 +1082,6 @@ static void EBS_processGATTDiscEvent(gattMsgEvent_t *pMsg) {
 			{
 				switch(*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 5))
 				{
-					case LO_UINT16(EVRSPROFILE_SYSID_UUID):
-						charHdl[EVRSPROFILE_SYSID] = BUILD_UINT16(
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 3),
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 4));
-						profileCounter++;
-						break;
-
-					case LO_UINT16(EVRSPROFILE_DEVID_UUID):
-						charHdl[EVRSPROFILE_DEVID] = BUILD_UINT16(
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 3),
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 4));
-						profileCounter++;
-						break;
-
 					case LO_UINT16(EVRSPROFILE_CMD_UUID):
 						charHdl[EVRSPROFILE_CMD] = BUILD_UINT16(
 								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 3),
@@ -1502,7 +1521,6 @@ static uint8_t EBS_writeCharbyHandle(uint16_t connHandle, ProfileId_t charHdlId,
 		req.sig = 0;
 		req.cmd = 0;
 		status = GATT_WriteCharValue(connHandle, &req, selfEntity);
-		//Display_print2(dispHandle,ROW_SIX,0,"Write req sent [%d,0x%02x]", req.len, *(req.pValue));
 		if (status != SUCCESS)
 			GATT_bm_free((gattMsg_t *) &req, ATT_WRITE_REQ);
 	} else
@@ -1568,7 +1586,7 @@ static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState) {
 
 		case EBS_POLL_STATE_CONNECT:
 			// TODO: need a lookup process if using parallel connections
-			Semaphore_pend(targetConnSem, -1); // waiting for a vacant conn slot
+			Semaphore_pend(targetConnSem, ~0); // waiting for a vacant conn slot
 			// findNextVacantSlot(pVacantSlot) // TODO: find a vacant target connection slot
 			pConnectingSlot = targetList + targetIndex;
 			Util_startClock(&connectingClock);
@@ -1651,289 +1669,19 @@ static void EBS_updateTargetList(uint8_t* txID) {
 
 }
 
-
-
-
-/*	switch (state)
-	{
-		case BLE_STATE_IDLE:
-			//Display_print0(dispHdl, ROW_STATE, 0, "BLE_STATE_IDLE");
-			if (keys & KEY_RIGHT)
-			{
-				// Discover devices
-				EBS_discoverDevices();
-			}
-			//If LEFT is pressed, nothing happens.
-			break;
-
-		case BLE_STATE_DISCOVERED:
-			//Display_print0(dispHdl, ROW_STATE, 0, "BLE_STATE_DISCOVERED");
-			if (keys & KEY_LEFT)
-			{
-				//Display Discovery Results
-				if (!scanningStarted && scanRes > 0)
-				{
-					if (scanIdx >= scanRes)
-					{
-						Display_clearLines(dispHdl, ROW_TWO, ROW_SEVEN);
-						Display_print0(dispHdl, ROW_SIX, 0,
-								"<LEFT to browse");
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">RIGHT to scan");
-
-						state = BLE_STATE_BROWSING;
-						scanIdx = 0;
-					} else
-					{
-						Display_print1(dispHdl, ROW_ONE, 0, "Device %d",
-								(scanIdx + 1));
-						Display_print0(dispHdl, ROW_TWO, 0,
-								Util_convertBdAddr2Str(discTxList[scanIdx].addr));
-						Display_print1(dispHdl, ROW_THREE, 0, "Tx ID 0x%08x",
-								EBS_parseDevID(discTxList[scanIdx].txDevID));
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">RIGHT to connect");
-
-						state = BLE_STATE_BROWSING;
-						scanIdx++;
-					}
-				}
-				return;
-			} else if (keys & KEY_RIGHT)
-			{
-				//Start scanning
-				EBS_discoverDevices();
-			}
-			break;
-
-		case BLE_STATE_BROWSING:
-			//Display_print0(dispHdl, ROW_STATE, 0, "BLE_STATE_BROWSING");
-			if (keys & KEY_LEFT)
-			{
-				//Navigate through discovery results
-				if (!scanningStarted && scanRes > 0)
-				{
-					if (scanIdx >= scanRes)
-					{
-						//Display the scan option
-						Display_clearLines(dispHdl, ROW_ONE, ROW_SEVEN);
-						Display_print1(dispHdl, ROW_ONE, 0,
-								"Devices found %d", scanRes);
-						Display_print0(dispHdl, ROW_SIX, 0,
-								"<LEFT to browse");
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">RIGHT to scan");
-
-						state = BLE_STATE_BROWSING;
-						scanIdx = 0;
-					} else
-					{
-						//Display next device
-						Display_print1(dispHdl, ROW_ONE, 0, "Device %d",
-								(scanIdx + 1));
-						Display_print0(dispHdl, ROW_TWO, 0,
-								Util_convertBdAddr2Str(discTxList[scanIdx].addr));
-						Display_print1(dispHdl, ROW_THREE, 0, "Tx ID 0x%08x",
-								EBS_parseDevID(discTxList[scanIdx].txDevID));
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">RIGHT to connect");
-
-						state = BLE_STATE_BROWSING;
-						scanIdx++;
-					}
-				}
-			} else if (keys & KEY_RIGHT)
-			{
-				//Scan for devices if the scan option is displayed
-				if (scanIdx == 0)
-				{
-					EBS_discoverDevices();
-				}
-
-				//Connect to displayed device
-				else
-				{
-					uint8_t addrType;
-					uint8_t *peerAddr;
-					if (scanRes > 0 && state == BLE_STATE_BROWSING)
-					{
-						// connect to current device in scan result
-						peerAddr = discTxList[scanIdx - 1].addr;
-						addrType = discTxList[scanIdx - 1].addrType;
-
-						state = BLE_STATE_CONNECTING;
-
-						Util_startClock(&connectingClock);
-
-						GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE,
-						DEFAULT_LINK_WHITE_LIST, addrType, peerAddr);
-
-						Display_clearLines(dispHdl, ROW_FOUR, ROW_SEVEN);
-						Display_print0(dispHdl, ROW_TWO, 0,
-								Util_convertBdAddr2Str(peerAddr));
-						Display_print0(dispHdl, ROW_FOUR, 0, "Connecting");
-					}
-				}
-			}
-			break;
-
-		case BLE_STATE_CONNECTING:
-			//Display_print0(dispHdl, ROW_STATE, 0, "BLE_STATE_CONNECTING");
-			//Nothing happens if buttons are pressed while the device is connecting.
-			break;
-
-		case BLE_STATE_CONNECTED:
-			//Display_print0(dispHdl, ROW_STATE, 0, "BLE_STATE_CONNECTED");
-			if (keys & KEY_LEFT) //Navigate though menu.
-			{
-				//Iterate through rows
-				switch (selectedMenuItem)
-				{
-					case MENU_ITEM_CONN_PARAM_UPDATE:
-						selectedMenuItem = MENU_ITEM_RSSI;
-						if (EBS_RssiFind(connHandle) == NULL)
-						{
-							Display_print0(dispHdl, ROW_SEVEN, 0,
-									">Start RSSI poll");
-						} else
-						{
-							Display_print0(dispHdl, ROW_SEVEN, 0,
-									">Stop RSSI poll");
-						}
-						break;
-
-					case MENU_ITEM_RSSI:
-						selectedMenuItem = MENU_ITEM_READ_WRITE;
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">Read/write req");
-						break;
-
-					case MENU_ITEM_READ_WRITE:
-						selectedMenuItem = MENU_ITEM_DISCONNECT;
-						Display_print0(dispHdl, ROW_SEVEN, 0, ">Disconnect");
-						break;
-
-					case MENU_ITEM_DISCONNECT:
-						selectedMenuItem = MENU_ITEM_CONN_PARAM_UPDATE;
-						Display_print0(dispHdl, ROW_SEVEN, 0,
-								">Param upd req");
-						break;
-				}
-			}
-			if (keys & KEY_RIGHT)
-			{
-				switch (selectedMenuItem)
-				{
-					case MENU_ITEM_CONN_PARAM_UPDATE:
-						//Connection Parameter Update
-						Display_print0(dispHdl, ROW_FOUR, 0,
-								"Param upd req");
-						switch (currentConnectionParameter)
-						{
-							case INITIAL_PARAMETERS:
-								GAPCentralRole_UpdateLink(connHandle,
-								DEFAULT_UPDATE_MIN_CONN_INTERVAL,
-								DEFAULT_UPDATE_MAX_CONN_INTERVAL,
-								DEFAULT_UPDATE_SLAVE_LATENCY,
-								DEFAULT_UPDATE_CONN_TIMEOUT);
-								currentConnectionParameter =
-										DEFAULT_UPDATE_PARAMETERS;
-								break;
-							case DEFAULT_UPDATE_PARAMETERS:
-								GAPCentralRole_UpdateLink(connHandle,
-								INITIAL_MIN_CONN_INTERVAL,
-								INITIAL_MAX_CONN_INTERVAL,
-								INITIAL_SLAVE_LATENCY,
-								INITIAL_CONN_TIMEOUT);
-								currentConnectionParameter = INITIAL_PARAMETERS;
-								break;
-						}
-						break;
-
-					case MENU_ITEM_RSSI:
-						// Start or cancel RSSI polling
-						if (EBS_RssiFind(connHandle) == NULL)
-						{
-							Display_clearLine(dispHdl, ROW_FIVE);
-							EBS_StartRssi(connHandle,
-							DEFAULT_RSSI_PERIOD);
-							Display_print0(dispHdl, ROW_SEVEN, 0,
-									">Stop RSSI poll");
-						} else
-						{
-							EBS_CancelRssi(connHandle);
-							Display_print0(dispHdl, ROW_FIVE, 0,
-									"RSSI Cancelled");
-							if (selectedMenuItem == MENU_ITEM_RSSI)
-							{
-								Display_print0(dispHdl, ROW_SEVEN, 0,
-										">Start RSSI poll");
-							}
-						}
-						break;
-
-					case MENU_ITEM_READ_WRITE:
-						if (state == BLE_STATE_CONNECTED&&
-						charHdl != 0 &&
-						procedureInProgress == FALSE)
-						{
-							uint8_t status;
-							// Do a read or write as long as no other read or write is in progress
-							if (doWrite)
-							{
-								// Do a write
-								attWriteReq_t req;
-								req.pValue = GATT_bm_alloc(connHandle,
-								ATT_WRITE_REQ, 1, NULL);
-								if (req.pValue != NULL)
-								{
-									Display_print0(dispHdl, ROW_SIX, 0,
-											"Write req sent");
-									req.handle = charHdl[EVRSPROFILE_DATA];
-									req.len = 1;
-									req.pValue[0] = 0xaf;
-									req.sig = 0;
-									req.cmd = 0;
-									status = GATT_WriteCharValue(connHandle,
-											&req, selfEntity);
-									//Display_print1(dispHdl, 9, 0, "0x%04x",req.handle);
-									if (status != SUCCESS)
-									{
-										GATT_bm_free((gattMsg_t *) &req,
-										ATT_WRITE_REQ);
-									}
-								} else
-								{
-									status = bleMemAllocError;
-								}
-							} else
-							{
-								// Do a read
-								attReadReq_t req;
-								req.handle = charHdl[EVRSPROFILE_DATA];
-								status = GATT_ReadCharValue(connHandle, &req,
-										selfEntity);
-								Display_print0(dispHdl, ROW_SIX, 0,
-										"Read req sent");
-							}
-
-							if (status == SUCCESS)
-							{
-								procedureInProgress = TRUE;
-								doWrite = !doWrite;
-							}
-						}
-						break;
-
-					case MENU_ITEM_DISCONNECT:
-						GAPCentralRole_TerminateLink(connHandle);
-						state = BLE_STATE_DISCONNECTING;
-						Display_clearLines(dispHdl, ROW_ONE, ROW_SEVEN);
-						Display_print0(dispHdl, ROW_ONE, 0, "Disconnecting");
-						break;
-				}
-			}
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+static void EBS_TLpacketParser(void) {
+	//read available bytes
+	uint8_t len = TLgetRxBufLen();
+	if (len >= APP_TL_BUFF_SIZE) {
+		len = APP_TL_BUFF_SIZE;
 	}
-	return;
+	TLread(appRxBuf, len);
+
+	// ADD PACKET PARSER HERE
+	// for now we just echo...
+
+	TLwrite(appRxBuf, len);
 }
-*/
+#endif //TL
+

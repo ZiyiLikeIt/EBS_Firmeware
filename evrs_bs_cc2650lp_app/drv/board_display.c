@@ -13,10 +13,13 @@
  ****************************************/
 
 #include <board_display.h>
+#if !defined(BOARD_DISPLAY_EXCLUDE_UART)
 #include <ti/mw/display/Display.h>
+#endif
 
 #define NULL 0
 
+#if !defined(BOARD_DISPLAY_EXCLUDE_UART)
 // Display Interface
 Display_Handle dispHandle = NULL;
 
@@ -30,3 +33,11 @@ void Board_Display_Print(uintptr_t fmt,
 	
 	Display_doPut5(dispHandle, 0, 0, fmt, a0, a1, a2, a3, a4);
 }
+#else
+void Board_Display_Init() {
+}
+
+void Board_Display_Print(uintptr_t fmt,
+	uintptr_t a0, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4) {
+}
+#endif

@@ -36,5 +36,12 @@ typedef struct {
 #define EBS_CONNECTING_TIMEOUT_EVT	  	0x0040
 #define EBS_STACK_MSG_EVT				0x0080
 
+#if defined (NPI_USE_UART)
+//events that TL will use to control the driver
+#define MRDY_EVT       	      		0x0100
+#define TRANSPORT_RX_EVT       		0x0200
+#define TRANSPORT_TX_DONE_EVT  		0x0400
+#endif //TL
+
 
 #endif /* EVRS_BS_TYPEDEFS_H_ */
