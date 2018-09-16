@@ -32,12 +32,10 @@
 #include "gattservapp.h"
 #include "central.h"
 #include "gapbondmgr.h"
-//#include "simple_gatt_profile.h"
 
 #include "osal_snv.h"
 #include "icall_apimsg.h"
 
-#include "evrs_bs_typedefs.h"
 #include "util.h"
 #include "board_key.h"
 #include "board_led.h"
@@ -213,12 +211,11 @@ typedef struct {
  * GLOBAL VARIABLES
  */
 
-// Display Interface
-// Display_Handle dispHdl = NULL;
-
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
+
+readRssi_t readRssi[MAX_NUM_BLE_CONNS];
 
 /*********************************************************************
  * LOCAL VARIABLES

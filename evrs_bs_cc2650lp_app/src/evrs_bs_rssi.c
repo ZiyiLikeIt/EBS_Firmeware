@@ -15,8 +15,14 @@ author	Ziyi
 #include "evrs_bs_rssi.h"
 #include "linkdb.h"
 
+/*
+ * external variables
+ */
+extern readRssi_t readRssi[MAX_NUM_BLE_CONNS];
 
-
+/*
+ *  local functions
+ */
 static readRssi_t *EBS_RssiAlloc(uint16_t connHandle);
 static void EBS_RssiFree(uint16_t connHandle);
 void EBS_readRssiHandler(UArg a0);
