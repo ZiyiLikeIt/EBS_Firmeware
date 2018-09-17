@@ -39,14 +39,12 @@ extern "C"
 
 
 // Simple BLE Central Task Events
-#define EBS_START_DISCOVERY_EVT      	0x0001
-#define EBS_PAIRING_STATE_EVT     		0x0002
-// #define EBS_PASSCODE_NEEDED_EVT     	0x0004
-#define EBS_RSSI_READ_EVT            	0x0008
-#define EBS_KEY_CHANGE_EVT            	0x0010
-#define EBS_STATE_CHANGE_EVT          	0x0020
-#define EBS_CONNECTING_TIMEOUT_EVT	  	0x0040
-#define EBS_STACK_MSG_EVT				0x0080
+#define EBS_PAIRING_STATE_EVT     		0x0001
+#define EBS_STATE_CHANGE_EVT          	0x0002
+#define EBS_CONNECTING_TIMEOUT_EVT	  	0x0004
+#define EBS_STACK_MSG_EVT				0x0008
+#define EBS_UMSG_RECV_EVT				0x0010
+#define EBS_CONN_DONE_EVT				0x0020
 
 #if defined (NPI_USE_UART) && defined(NPI_ENABLE)
 //events that TL will use to control the driver
@@ -56,10 +54,8 @@ extern "C"
 #endif //TL
 
 
-
-
 // Max number of connections
-#define MAX_NUM_BLE_CONNS		1
+#define MAX_NUM_BLE_CONNS		4
 
 /*********************************************************************
  * FUNCTIONS
@@ -67,9 +63,8 @@ extern "C"
 /*
  * Task creation function for the Simple BLE Central.
  */
-extern void EBS_createTask(void);
-extern uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status,
-		uint8_t *pData);
+void EBS_createTask(void);
+uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData);
 
 /*********************************************************************
 *********************************************************************/

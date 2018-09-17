@@ -67,16 +67,6 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>Application/board_key.c</name>
-			<type>1</type>
-			<locationURI>SRC_EX/common/cc26xx/board_key.c</locationURI>
-		</link>
-		<link>
-			<name>Application/board_key.h</name>
-			<type>1</type>
-			<locationURI>SRC_EX/common/cc26xx/board_key.h</locationURI>
-		</link>
-		<link>
 			<name>Application/util.c</name>
 			<type>1</type>
 			<locationURI>SRC_EX/common/cc26xx/util.c</locationURI>
@@ -107,11 +97,6 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>Drivers/SPI</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
 			<name>Drivers/TL</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -123,11 +108,6 @@
 		</link>
 		<link>
 			<name>Drivers/UART</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>Drivers/UDMA</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -307,26 +287,6 @@
 			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/rf/RFCC26XX_singleMode.c</locationURI>
 		</link>
 		<link>
-			<name>Drivers/SPI/SPI.c</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/SPI.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/SPI/SPI.h</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/SPI.h</locationURI>
-		</link>
-		<link>
-			<name>Drivers/SPI/SPICC26XXDMA.c</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/spi/SPICC26XXDMA.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/SPI/SPICC26XXDMA.h</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/spi/SPICC26XXDMA.h</locationURI>
-		</link>
-		<link>
 			<name>Drivers/TL/npi_data.h</name>
 			<type>1</type>
 			<locationURI>SRC_COMMON/npi/src/inc/npi_data.h</locationURI>
@@ -390,16 +350,6 @@
 			<name>Drivers/UART/UARTCC26XX.h</name>
 			<type>1</type>
 			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/uart/UARTCC26XX.h</locationURI>
-		</link>
-		<link>
-			<name>Drivers/UDMA/UDMACC26XX.c</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/dma/UDMACC26XX.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/UDMA/UDMACC26XX.h</name>
-			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/drivers/dma/UDMACC26XX.h</locationURI>
 		</link>
 	</linkedResources>
 	<variableList>
