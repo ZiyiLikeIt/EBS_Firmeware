@@ -144,17 +144,17 @@
 
 // Application states
 typedef enum EbsState_t{
-	EBS_STATE_INIT,
-	EBS_STATE_IDLE,
-	EBS_STATE_DISC,
-	EBS_STATE_POLL
+	APP_STATE_INIT,
+	APP_STATE_IDLE,
+	APP_STATE_DISC,
+	APP_STATE_POLL
 } EbsState_t;
 
 // Polling states
 typedef enum EbsPollState_t{
-	EBS_POLL_STATE_IDLE,
-	EBS_POLL_STATE_READ,
-	EBS_POLL_STATE_END
+	POLL_STATE_IDLE,
+	POLL_STATE_READ,
+	POLL_STATE_END
 } EbsPollState_t;
 
 // GATT profile ID
@@ -225,7 +225,7 @@ static bool scanningStarted = FALSE;
 //static uint16_t connHandleList[MAX_NUM_BLE_CONNS] = GAP_CONNHANDLE_INIT;
 
 // Application state
-static EbsState_t ebsState = EBS_STATE_INIT;
+static EbsState_t ebsState = APP_STATE_INIT;
 
 
 // Base Station Identifier
@@ -244,9 +244,11 @@ static uint8_t appRxBuf[APP_TL_BUFF_SIZE];
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+/** Task Functions **/
 static void EBS_init(void);
 static void EBS_taskFxn(UArg a0, UArg a1);
 
+/** Internal message routing **/
 static void EBS_processGATTMsg(gattMsgEvent_t *pMsg);
 static void EBS_processStackMsg(ICall_Hdr *pMsg);
 static void EBS_processAppMsg(EbsEvt_t *pMsg);
@@ -304,17 +306,11 @@ static TLCBs_t EBS_TLCBs = {
 		};
 #endif
 /*********************************************************************
- * PUBLIC FUNCTIONS
+ * Functions
  */
 
 /*********************************************************************
- * @fn      SimpleBLEPeripheral_createTask
- *
- * @brief   Task creation function for the Simple BLE Peripheral.
- *
- * @param   none
- *
- * @return  none
+ * Task Functions
  */
 void EBS_createTask(void) {
 	Task_Params taskParams;
@@ -436,15 +432,6 @@ static void EBS_init(void) {
 #endif //TL
 }
 
-/*********************************************************************
- * @fn      EBS_taskFxn
- *
- * @brief   Application task entry point for the Simple BLE Central.
- *
- * @param   none
- *
- * @return  events not processed
- */
 static void EBS_taskFxn(UArg a0, UArg a1) {
 	// Initialize application
 	EBS_init();
@@ -502,14 +489,9 @@ static void EBS_taskFxn(UArg a0, UArg a1) {
 }
 
 /*********************************************************************
- * @fn      EBS_processStackMsg
- *
- * @brief   Process an incoming task message.
- *
- * @param   pMsg - message to process
- *
- * @return  none
+ * Internal message routing
  */
+/** ble stack event processing function **/
 static void EBS_processStackMsg(ICall_Hdr *pMsg) {
 	switch (pMsg->event)
 	{
@@ -526,15 +508,7 @@ static void EBS_processStackMsg(ICall_Hdr *pMsg) {
 	}
 }
 
-/*********************************************************************
- * @fn      EBS_processAppMsg
- *
- * @brief   Central application event processing function.
- *
- * @param   pMsg - pointer to event structure
- *
- * @return  none
- */
+/** Central application event processing function **/
 static void EBS_processAppMsg(EbsEvt_t *pMsg) {
 	switch (pMsg->hdr.event)
 	{
@@ -545,7 +519,7 @@ static void EBS_processAppMsg(EbsEvt_t *pMsg) {
 			ICall_freeMsg(pMsg->pData);
 			break;
 
-		case EBS_STATE_CHANGE_EVT:
+		case APP_STATE_CHANGE_EVT:
 			EBS_stateChange((EbsState_t)pMsg->hdr.state);
 			break;
 
@@ -571,15 +545,75 @@ static void EBS_processAppMsg(EbsEvt_t *pMsg) {
 }
 
 /*********************************************************************
- * @fn      EBS_processRoleEvent
+ * @fn      EBS_enqueueMsg
  *
- * @brief   Central role event processing function.
+ * @brief   Creates a message and puts the message in RTOS queue.
  *
- * @param   pEvent - pointer to event structure
+ * @param   event - message event.
+ * @param   state - message state.
+ * @param   pData - message data pointer.
  *
- * @return  none
+ * @return  TRUE or FALSE
  */
-static void EBS_processRoleEvent(gapCentralRoleEvent_t *pEvent) {
+uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData) {
+    EbsEvt_t *pMsg = ICall_malloc(sizeof(EbsEvt_t));
+    // Create dynamic pointer to message.
+    if (pMsg)
+    {
+        pMsg->hdr.event = event;
+        pMsg->hdr.state = status;
+        pMsg->pData = pData;
+
+        // Enqueue the message.
+        return Util_enqueueMsg(appMsgQueue, sem, (uint8_t *) pMsg);
+    }
+    return FALSE;
+}
+
+/*****************************************************************************
+ * Callbacks
+ */
+/** GAP Role event **/
+static uint8_t EBS_CB_GAPRoleStateChange(gapCentralRoleEvent_t *pEvent) {
+    // Forward the role event to the application
+    if (EBS_enqueueMsg(EBS_GAP_STATE_CHG_EVT, SUCCESS, (uint8_t *) pEvent))
+        return FALSE; // App will process and free the event
+    else
+        return TRUE; // Caller should free the event
+
+}
+
+/** Post event if connecting is timed out **/
+static void EBS_CB_connectingTimeout(UArg arg0) {
+    if (pConnectingSlot != NULL)
+        EBS_enqueueMsg(EBS_CONNECTING_TIMEOUT_EVT, 0, NULL);
+}
+
+/** pair state cb **/
+static void EBS_CB_pairStateChange(uint16_t connHandle, uint8_t pairState,
+        uint8_t status) {
+    uint8_t *pData;
+
+    // Allocate space for the event data.
+    if ((pData = ICall_malloc(sizeof(uint8_t))))
+    {
+        *pData = status;
+
+        // Queue the event.
+        EBS_enqueueMsg(EBS_PAIRING_STATE_EVT, pairState, pData);
+    }
+}
+
+/** app state change cb (manual) **/
+static void EBS_CBm_appStateChange(EbsState_t newState) {
+    EBS_enqueueMsg(APP_STATE_CHANGE_EVT, newState, NULL);
+}
+
+/*****************************************************************************
+ * Event process service
+ */
+/** GAP Central role event processing function **/
+static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 	switch (pEvent->gap.opcode)
 	{
 		case GAP_DEVICE_INIT_DONE_EVENT:
@@ -628,7 +662,7 @@ static void EBS_processRoleEvent(gapCentralRoleEvent_t *pEvent) {
 			// initialize scan index to first
 			scanIdx = 0;
 			uout1("%d Device(s) found", scanRes);
-			EBS_updateEbsState(EBS_STATE_POLL);
+			EBS_updateEbsState(APP_STATE_POLL);
 		}
 			break;
 
@@ -679,7 +713,7 @@ static void EBS_processRoleEvent(gapCentralRoleEvent_t *pEvent) {
 			memset(charHdl,0x00,4);
 			profileCounter = 0;
 			procedureInProgress = FALSE;
-			EBS_updatePollState(1, EBS_POLL_STATE_IDLE);
+			EBS_updatePollState(1, POLL_STATE_IDLE);
 
 			//Clear screen and display disconnect reason
 			uout1("Disconnected: 0x%02x", pEvent->linkTerminate.reason);
@@ -692,15 +726,9 @@ static void EBS_processRoleEvent(gapCentralRoleEvent_t *pEvent) {
 }
 
 
-/*********************************************************************
- * @fn      EBS_processGATTMsg
- *
- * @brief   Process GATT messages and events.
- *
- * @return  none
- */
-static void EBS_processGATTMsg(gattMsgEvent_t *pMsg) {
-	if (ebsState == EBS_STATE_POLLING)
+/** Process GATT messages and events **/
+static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
+	if (ebsState == APP_STATE_POLLING)
 	{
 		// See if GATT server was unable to transmit an ATT response
 		if (pMsg->hdr.status == blePending)
@@ -719,7 +747,7 @@ static void EBS_processGATTMsg(gattMsgEvent_t *pMsg) {
 			{
 				// After a successful read, display the read value
 				uout1("Read rsp: 0x%02x", pMsg->msg.readRsp.pValue[0]);
-				EBS_updatePollState(0, EBS_POLL_STATE_WRITE);
+				EBS_updatePollState(0, POLL_STATE_WRITE);
 			}
 
 			procedureInProgress = FALSE;
@@ -735,7 +763,7 @@ static void EBS_processGATTMsg(gattMsgEvent_t *pMsg) {
 				// After a successful write, display the value that was written and
 				// increment value
 				uout0("Write done");
-				EBS_updatePollState(0, EBS_POLL_STATE_TERMINATE);
+				EBS_updatePollState(0, POLL_STATE_TERMINATE);
 			}
 
 			procedureInProgress = FALSE;
@@ -761,53 +789,41 @@ static void EBS_processGATTMsg(gattMsgEvent_t *pMsg) {
 	GATT_bm_free(&pMsg->msg, pMsg->method);
 }
 
-
-/*********************************************************************
- * @fn      EBS_processPairState
- *
- * @brief   Process the new paring state.
- *
- * @return  none
- */
-static void EBS_processPairState(uint8_t pairState, uint8_t status) {
-	if (pairState == GAPBOND_PAIRING_STATE_STARTED)
-	{
-		uout0("Pairing started");
-	} else if (pairState == GAPBOND_PAIRING_STATE_COMPLETE)
-	{
-		if (status == SUCCESS)
-		{
-			uout0("Pairing success");
-		} else
-		{
-			uout1("Pairing fail: %d", status);
-		}
-	} else if (pairState == GAPBOND_PAIRING_STATE_BONDED)
-	{
-		if (status == SUCCESS)
-		{
-			uout0("Bonding success");
-		}
-	} else if (pairState == GAPBOND_PAIRING_STATE_BOND_SAVED)
-	{
-		if (status == SUCCESS)
-		{
-			uout0("Bond save succ");
-		} else
-		{
-			uout1("Bond save fail: %d", status);
-		}
-	}
+/** Process the new paring state **/
+static void EBS_EVT_pairStateChange(uint8_t pairState, uint8_t status) {
+    if (pairState == GAPBOND_PAIRING_STATE_STARTED)
+    {
+        uout0("Pairing started");
+    } else if (pairState == GAPBOND_PAIRING_STATE_COMPLETE)
+    {
+        if (status == SUCCESS)
+        {
+            uout0("Pairing success");
+        } else
+        {
+            uout1("Pairing fail: %d", status);
+        }
+    } else if (pairState == GAPBOND_PAIRING_STATE_BONDED)
+    {
+        if (status == SUCCESS)
+        {
+            uout0("Bonding success");
+        }
+    } else if (pairState == GAPBOND_PAIRING_STATE_BOND_SAVED)
+    {
+        if (status == SUCCESS)
+        {
+            uout0("Bond save succ");
+        } else
+        {
+            uout1("Bond save fail: %d", status);
+        }
+    }
 }
 
-/*********************************************************************
- * @fn      EBS_startDiscovery
- *
- * @brief   Start service discovery.
- *
- * @return  none
- */
-static void EBS_Poll_startEnquire(void) {
+
+/** Start enquire process **/
+static void EBS_Poll_enquireStart(void) {
 
 	// Initialize cached handles
 	svcStartHdl = svcEndHdl = 0;
@@ -823,14 +839,8 @@ static void EBS_Poll_startEnquire(void) {
 
 }
 
-/*********************************************************************
- * @fn      EBS_processGATTDiscEvent
- *
- * @brief   Process GATT discovery event
- *
- * @return  none
- */
-static void EBS_processGATTDiscEvent(gattMsgEvent_t *pMsg) {
+/** Process messages when enquiring **/
+static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg) {
 	if (discState == EBS_DISC_STATE_SVC)
 	{
 		// Service found, store handles
@@ -897,84 +907,20 @@ static void EBS_processGATTDiscEvent(gattMsgEvent_t *pMsg) {
 			uout1("%d Profile(s) Found ", profileCounter);
 			procedureInProgress = FALSE;
 			discState = EBS_DISC_STATE_IDLE;
-			EBS_updatePollState(0, EBS_POLL_STATE_READ);
+			EBS_updatePollState(0, POLL_STATE_READ);
 		}
 
 	}
 }
 
-/*********************************************************************
- * @fn      EBS_findSvcUuid
- *
- * @brief   Find a given UUID in an advertiser's service UUID list.
- *
- * @return  TRUE if service UUID found
- */
-//static bool EBS_findSvcUuid(uint16_t uuid, uint8_t *pData,
-//		uint8_t dataLen) {
-//	uint8_t adLen;
-//	uint8_t adType;
-//	uint8_t *pEnd;
-//
-//	pEnd = pData + dataLen - 1;
-//
-//	// While end of data not reached
-//	while (pData < pEnd)
-//	{
-//		// Get length of next AD item
-//		adLen = *pData++;
-//		if (adLen > 0)
-//		{
-//			adType = *pData;
-//
-//			// If AD type is for 16-bit service UUID
-//			if ((adType == GAP_ADTYPE_16BIT_MORE)
-//					|| (adType == GAP_ADTYPE_16BIT_COMPLETE))
-//			{
-//				pData++;
-//				adLen--;
-//
-//				// For each UUID in list
-//				while (adLen >= 2 && pData < pEnd)
-//				{
-//					// Check for match
-//					if ((pData[0] == LO_UINT16(uuid))
-//							&& (pData[1] == HI_UINT16(uuid)))
-//					{
-//						// Match found
-//						return TRUE;
-//					}
-//
-//					// Go to next AD item
-//					pData += 2;
-//					adLen -= 2;
-//				}
-//
-//				// Handle possible erroneous extra byte in UUID list
-//				if (adLen == 1)
-//				{
-//					pData++;
-//				}
-//
-//			} else
-//			{
-//				// Go to next AD item
-//				pData += adLen;
-//			}
-//		}
-//	}
-//	// Match not found
-//	return FALSE;
-//}
-
-/*********************************************************************
+/**SECTION**********************************************************
  * @fn      EBS_discoverDevices
  *
  * @brief   Scan to discover devices.
  *
  * @return  none
  */
-static void EBS_discoverDevices(void) {
+static void EBS_Disc_processStart(void) {
 	if (!scanningStarted)
 	{
 		scanningStarted = TRUE;
@@ -985,259 +931,46 @@ static void EBS_discoverDevices(void) {
 
 		uout0("Discovering...");
 		GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
-		DEFAULT_DISCOVERY_ACTIVE_SCAN,
-		DEFAULT_DISCOVERY_WHITE_LIST);
+                DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                DEFAULT_DISCOVERY_WHITE_LIST);
 	} else
 	{
 		GAPCentralRole_CancelDiscovery();
 	}
 }
 
-/**********************************************************************
- * @fn      EBS_timeoutConnecting
- *
- * @brief   Post event if connecting is timed out.
- *
- * @return  none
- */
-Void EBS_timeoutConnecting(UArg arg0) {
-	if (pConnectingSlot != NULL)
-	{
-		EBS_enqueueMsg(EBS_CONNECTING_TIMEOUT_EVT, 0, NULL);
-	}
-}
-
-/*
- *
- */
-//static bool EBS_checkBSId(uint8_t bsID, uint8_t *pEvtData, uint8_t dataLen) {
-//	uint8_t adLen;
-//	uint8_t adType;
-//	uint8_t *pEnd;
-//
-//	int ii = 0;
-//
-//	pEnd = pEvtData + dataLen - 1;
-//
-//	//Display_print5(dispHdl, 9, 0,"len %d, 0x%02x, 0x%02x, 0x%02x, 0x%02x",
-//	//		dataLen,pEvtData[8],pEvtData[9],pEvtData[10],pEvtData[11]);
-//	// While end of data not reached
-//	while (pEvtData < pEnd)
-//	{
-//		// Get length of next data item
-//		adLen = *pEvtData++;
-//		if (adLen > 0)
-//		{
-//			adType = *pEvtData;
-//			//Display_print1(dispHdl, ii+9, 0, "0x%02x",adType);
-//			// If AD type is for local name
-//			if (adType == ETX_ADTYPE_DEST)
-//			{
-//				pEvtData++;
-//				// For base station identifier in the advert data
-//				return (*pEvtData == bsID);
-//			} else
-//			{
-//				// Go to next item
-//				pEvtData += adLen;
-//				ii++;
-//			}
-//		}
-//	}
-//	// No name found
-//	return FALSE;
-//}
 
 
-/*********************************************************************
- * @fn      EBS_addDeviceInfo
- *
- * @brief   Add a device to the device discovery result list
- *
- * @return  none
- */
-//static void EBS_addDeviceInfo(uint8_t *pAddr, uint8_t addrType) {
-//	uint8_t i;
-//
-//	// If result count not at max
-//	if (scanRes < MAX_SCAN_RES)
-//	{
-//		// Check if device is already in scan results
-//		for (i = 0; i < scanRes; i++)
-//		{
-//			if (memcmp(pAddr, discTxList[i].addr, B_ADDR_LEN) == 0)
-//			{
-//				return;
-//			}
-//		}
-//
-//		// Add addr to scan result list
-//		memcpy(discTxList[scanRes].addr, pAddr, B_ADDR_LEN);
-//		discTxList[scanRes].addrType = addrType;
-//
-//		// Increment scan result count
-//		scanRes++;
-//	}
-//}
 
-
-/*********************************************************************
- * @fn      EBS_addDeviceName
- *
- * @brief   Add a name to an existing device in the scan result list
- *
- * @return  none
- */
-//static void EBS_addDeviceID(uint8_t index, uint8_t *pEvtData,
-//		uint8_t dataLen) {
-//	uint8_t scanRspLen;
-//	uint8_t scanRspType;
-//	uint8_t *pEnd;
-//
-//	pEnd = pEvtData + dataLen - 1;
-//
-//	// While end of data not reached
-//	while (pEvtData < pEnd)
-//	{
-//		// Get length of next scan response item
-//		scanRspLen = *pEvtData++;
-//		if (scanRspLen > 0)
-//		{
-//			scanRspType = *pEvtData;
-//
-//			// If scan response type is for local name
-//			if (scanRspType == ETX_ADTYPE_DEVID)
-//			{
-//				//Set name length in the device struct.
-//				pEvtData++;
-//
-//				//Copy device id from the scan response data
-//				for (int j = 0; j < ETX_DEVID_LEN; j++)
-//					discTxList[index].txDevID[j] = *pEvtData++;
-//			}
-//		} else
-//		{
-//			// Go to next scan response item
-//			pEvtData += scanRspLen;
-//		}
-//	}
-//}
-
-/*********************************************************************
- * @fn      EBS_eventCB
- *
- * @brief   Central event callback function.
- *
- * @param   pEvent - pointer to event structure
- *
- * @return  TRUE if safe to deallocate event message, FALSE otherwise.
- */
-static uint8_t EBS_eventCB(gapCentralRoleEvent_t *pEvent) {
-	// Forward the role event to the application
-	if (EBS_enqueueMsg(EBS_STACK_MSG_EVT, SUCCESS, (uint8_t *) pEvent))
-	{
-		// App will process and free the event
-		return FALSE;
-	}
-
-	// Caller should free the event
-	return TRUE;
-}
-
-
-/*********************************************************************
- * @fn      EBS_pairStateCB
- *
- * @brief   Pairing state callback.
- *
- * @return  none
- */
-static void EBS_pairStateCB(uint16_t connHandle, uint8_t pairState,
-		uint8_t status) {
-	uint8_t *pData;
-
-	// Allocate space for the event data.
-	if ((pData = ICall_malloc(sizeof(uint8_t))))
-	{
-		*pData = status;
-
-		// Queue the event.
-		EBS_enqueueMsg(EBS_PAIRING_STATE_EVT, pairState, pData);
-	}
-}
-
-
-/*********************************************************************
- * @fn      EBS_keyChangeHandler
- *
- * @brief   Key event handler function
- *
- * @param   a0 - ignored
- *
- * @return  none
- */
-void EBS_keyChangeHandler(uint8_t keys) {
-	EBS_enqueueMsg(EBS_KEY_CHANGE_EVT, keys, NULL);
-}
-
-/*********************************************************************
- * @fn      EBS_enqueueMsg
- *
- * @brief   Creates a message and puts the message in RTOS queue.
- *
- * @param   event - message event.
- * @param   state - message state.
- * @param   pData - message data pointer.
- *
- * @return  TRUE or FALSE
- */
-uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status,
-		uint8_t *pData) {
-	EbsEvt_t *pMsg = ICall_malloc(sizeof(EbsEvt_t));
-
-	// Create dynamic pointer to message.
-	if (pMsg)
-	{
-		pMsg->hdr.event = event;
-		pMsg->hdr.state = status;
-		pMsg->pData = pData;
-
-		// Enqueue the message.
-		return Util_enqueueMsg(appMsgQueue, sem, (uint8_t *) pMsg);
-	}
-	return FALSE;
-}
 
 static uint32_t EBS_parseDevID(uint8_t* devID) {
 	return BUILD_UINT32(devID[0], devID[1], devID[2], devID[3]);
 }
 
 
-static void EBS_updateEbsState(EbsState_t newState) {
-	ebsState = newState;
-	EBS_enqueueMsg(EBS_STATE_CHANGE_EVT, newState, NULL);
-}
 
-static void EBS_stateChange(EbsState_t newState) {
+
+
+static void EBS_EVT_appStateChange(EbsState_t newState) {
 	switch (newState) {
-		case EBS_STATE_INIT:
-			uout0("ebsState = EBS_STATE_INIT");
+		case APP_STATE_INIT:
+			uout0("ebsState = APP_STATE_INIT");
 
 			break;
 
-		case EBS_STATE_DISCOVERY:
-			uout0("ebsState = EBS_STATE_DISCOVERY");
+		case APP_STATE_DISCOVERY:
+			uout0("ebsState = APP_STATE_DISCOVERY");
 			EBS_discoverDevices();
 			break;
 
-		case EBS_STATE_UPLOAD:
+		case APP_STATE_UPLOAD:
 			//TODO: send the discTxList to BC using UART
-			uout0("ebsState = EBS_STATE_UPLOAD");
+			uout0("ebsState = APP_STATE_UPLOAD");
 
 			break;
 
-		case EBS_STATE_POLLING:
-			uout0("ebsState = EBS_STATE_POLLING");
+		case APP_STATE_POLLING:
+			uout0("ebsState = APP_STATE_POLLING");
 			Semaphore_post(targetConnSem); // enable target connect
 
 			break;
@@ -1248,46 +981,46 @@ static void EBS_stateChange(EbsState_t newState) {
 }
 
 
-static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState) {
-	if (ebsState != EBS_STATE_POLLING)
-		return;
-	targetList[targetIndex].state = newState;
-	uint8_t rsp = 0xFF;
-	switch (newState) {
-		case EBS_POLL_STATE_IDLE:
-			break;
-
-		case EBS_POLL_STATE_CONNECT:
-			// TODO: need a lookup process if using parallel connections
-			Semaphore_pend(targetConnSem, ~0); // waiting for a vacant conn slot
-			// findNextVacantSlot(pVacantSlot) // TODO: find a vacant target connection slot
-			pConnectingSlot = targetList + targetIndex;
-			Util_startClock(&connectingClock);
-			GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE, LINK_WHITE_LIST,
-					targetList[targetIndex].addrType, targetList[targetIndex].addr);
-			break;
-
-		case EBS_POLL_STATE_READ:
-			Semaphore_post(targetConnSem); // release the sem to allow next connect
-			pConnectingSlot = NULL;
-			EBS_readCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA);
-			// TODO: upload the data to EBC
-			break;
-
-		case EBS_POLL_STATE_WRITE: // finish read
-			uout0("into write process");
-			EBS_writeCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA, &rsp, 1);
-
-			break;
-
-		case EBS_POLL_STATE_TERMINATE: // finish write
-			GAPCentralRole_TerminateLink(targetList[targetIndex].connHdl);
-			break;
-
-		default:
-			break;
-	}
-}
+//static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState) {
+//	if (ebsState != APP_STATE_POLLING)
+//		return;
+//	targetList[targetIndex].state = newState;
+//	uint8_t rsp = 0xFF;
+//	switch (newState) {
+//		case POLL_STATE_IDLE:
+//			break;
+//
+//		case POLL_STATE_CONNECT:
+//			// TODO: need a lookup process if using parallel connections
+//			Semaphore_pend(targetConnSem, ~0); // waiting for a vacant conn slot
+//			// findNextVacantSlot(pVacantSlot) // TODO: find a vacant target connection slot
+//			pConnectingSlot = targetList + targetIndex;
+//			Util_startClock(&connectingClock);
+//			GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE, LINK_WHITE_LIST,
+//					targetList[targetIndex].addrType, targetList[targetIndex].addr);
+//			break;
+//
+//		case POLL_STATE_READ:
+//			Semaphore_post(targetConnSem); // release the sem to allow next connect
+//			pConnectingSlot = NULL;
+//			EBS_readCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA);
+//			// TODO: upload the data to EBC
+//			break;
+//
+//		case POLL_STATE_WRITE: // finish read
+//			uout0("into write process");
+//			EBS_writeCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA, &rsp, 1);
+//
+//			break;
+//
+//		case POLL_STATE_TERMINATE: // finish write
+//			GAPCentralRole_TerminateLink(targetList[targetIndex].connHdl);
+//			break;
+//
+//		default:
+//			break;
+//	}
+//}
 
 
 static void EBS_updateTargetList(uint8_t* txID) {

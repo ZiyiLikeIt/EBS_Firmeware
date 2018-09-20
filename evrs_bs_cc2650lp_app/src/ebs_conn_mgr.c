@@ -12,40 +12,40 @@
  *
  ****************************************************************************/
 
-/*
+/*****************************************************************************
  * Macros
  */
-// for list initial
+/** for list initial **/
 #define DEFAULT_CONNHDL = 0xFFFE
 #define DEFAULT_SVCHDL = 0
 #define DEFAULT_ADTYPE = 0
 
-// advert data types
+/** advert data types **/
 #define ETX_ADTYPE_DEST			0xAF
 #define ETX_ADTYPE_DEVID		0xAE
 
-/*
+/*****************************************************************************
  * Global variables
  */
 // Discovered ETX List
 EtxInfo_t connList[MAX_NUM_BLE_CONNS];
 
-/*
+/*****************************************************************************
  * Local variables
  */
-// number of elements inside the connList
+/** number of elements inside the connList **/
 static uint8_t scanRes = 0;
 
-/*
+/*****************************************************************************
  * Local prototypes
  */
 
 
-/*
+/*****************************************************************************
  * Function definitions
  */
 
-// reset the list
+/** reset the list **/
 void EBS_connMgr_resetList() {
 	scanRes = 0;
 	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
@@ -62,7 +62,7 @@ void EBS_connMgr_resetList() {
 	}
 }
 
-// find the service uuid in the ad data
+/** find the service uuid in the ad data **/
 bool EBS_connMgr_findSvcUuid(uint16_t uuid, uint8_t *pData, uint8_t dataLen) {
 	uint8_t adLen;
 	uint8_t adType;
@@ -109,7 +109,7 @@ bool EBS_connMgr_findSvcUuid(uint16_t uuid, uint8_t *pData, uint8_t dataLen) {
 	return FALSE;
 }
 
-// check bsID of received data
+/** check bsID of received data **/
 bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen) {
 	uint8_t adLen;
 	uint8_t adType;
@@ -139,7 +139,7 @@ bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen) {
 	return FALSE;
 }
 
-// Add a device to the etx discovery result list
+/** Add a device to the etx discovery result list **/
 void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 	uint8_t i;
 
@@ -160,7 +160,7 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 	}
 }
 
-// add txDevID to the list
+/** add txDevID to the list **/
 void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen) {
 	uint8_t scanRspLen;
 	uint8_t scanRspType;
@@ -196,7 +196,7 @@ void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen) {
 	}
 }
 
-// find element using connHdl
+/** find element using connHdl **/
 EtxInfo_t* EBS_connMgr_findUsingConnHdl(uint16_t tConnHdl) {
 	uint8_t index = 0;
 	EtxInfo_t *rtn = NULL;
