@@ -242,7 +242,7 @@ static uint8_t appRxBuf[APP_TL_BUFF_SIZE];
 #endif //TL
 
 /*********************************************************************
- * LOCAL FUNCTIONS
+ * @TAG LOCAL FUNCTIONS
  */
 /** Task Functions **/
 static void EBS_init(void);
@@ -286,7 +286,7 @@ static void EBS_TLpacketParser(void);
 #endif //TL
 
 /*********************************************************************
- * PROFILE CALLBACKS
+ * @TAG register CALLBACKS
  */
 
 // GAP Role Callbacks
@@ -305,12 +305,9 @@ static TLCBs_t EBS_TLCBs = {
 		EBS_TLpacketParser // parse data read from transport layer
 		};
 #endif
-/*********************************************************************
- * Functions
- */
 
 /*********************************************************************
- * Task Functions
+ * @TAG Task Functions
  */
 void EBS_createTask(void) {
 	Task_Params taskParams;
@@ -489,7 +486,7 @@ static void EBS_taskFxn(UArg a0, UArg a1) {
 }
 
 /*********************************************************************
- * Internal message routing
+ * @TAG Internal message routing
  */
 /** ble stack event processing function **/
 static void EBS_processStackMsg(ICall_Hdr *pMsg) {
@@ -571,7 +568,7 @@ uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData) {
 }
 
 /*****************************************************************************
- * Callbacks
+ * @TAG Callbacks
  */
 /** GAP Role event **/
 static uint8_t EBS_CB_GAPRoleStateChange(gapCentralRoleEvent_t *pEvent) {
@@ -610,7 +607,7 @@ static void EBS_CBm_appStateChange(EbsState_t newState) {
 }
 
 /*****************************************************************************
- * Event process service
+ * @TAG Event process service
  */
 /** GAP Central role event processing function **/
 static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
@@ -692,7 +689,11 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 					}
 				}
 				targetList[i].connHdl = pEvent->linkCmpl.connectionHandle;
-				uout1("Tx ID 0x%08x Connected", EBS_parseDevID(targetList[i].txDevID));
+				uout1("Tx ID 0x%08x Connected",
+				      BUILD_UINT32(targetList[i].txDevID[0],
+				                   targetList[i].txDevID[1],
+				                   targetList[i].txDevID[2],
+				                   targetList[i].txDevID[3]);
 				uout1("Tx Addr %s", Util_convertBdAddr2Str(pEvent->linkCmpl.devAddr));
 
 			} else
@@ -821,6 +822,58 @@ static void EBS_EVT_pairStateChange(uint8_t pairState, uint8_t status) {
     }
 }
 
+/** app state change event **/
+static void EBS_EVT_appStateChange(EbsState_t newState) {
+    switch (newState) {
+        case APP_STATE_INIT:
+            uout0("ebsState = APP_STATE_INIT");
+
+            break;
+
+        case APP_STATE_DISCOVERY:
+            uout0("ebsState = APP_STATE_DISCOVERY");
+            EBS_discoverDevices();
+            break;
+
+        case APP_STATE_UPLOAD:
+            //TODO: send the discTxList to BC using UART
+            uout0("ebsState = APP_STATE_UPLOAD");
+
+            break;
+
+        case APP_STATE_POLLING:
+            uout0("ebsState = APP_STATE_POLLING");
+            Semaphore_post(targetConnSem); // enable target connect
+
+            break;
+
+        default:
+            break;
+    }
+}
+
+/*****************************************************************************
+ * @TAG Functions for app states
+ */
+/** Start discovery process **/
+static void EBS_Disc_processStart(void) {
+    if (!scanningStarted)
+    {
+        scanningStarted = TRUE;
+
+        //Clear old scan results
+        scanRes = 0;
+        memset(discTxList, NULL, sizeof(discTxList[0]) * MAX_SCAN_RES);
+
+        uout0("Discovering...");
+        GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
+                DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                DEFAULT_DISCOVERY_WHITE_LIST);
+    } else
+    {
+        GAPCentralRole_CancelDiscovery();
+    }
+}
 
 /** Start enquire process **/
 static void EBS_Poll_enquireStart(void) {
@@ -913,72 +966,21 @@ static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg) {
 	}
 }
 
-/**SECTION**********************************************************
- * @fn      EBS_discoverDevices
- *
- * @brief   Scan to discover devices.
- *
- * @return  none
- */
-static void EBS_Disc_processStart(void) {
-	if (!scanningStarted)
-	{
-		scanningStarted = TRUE;
 
-		//Clear old scan results
-		scanRes = 0;
-		memset(discTxList, NULL, sizeof(discTxList[0]) * MAX_SCAN_RES);
-
-		uout0("Discovering...");
-		GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
-                DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                DEFAULT_DISCOVERY_WHITE_LIST);
-	} else
-	{
-		GAPCentralRole_CancelDiscovery();
-	}
-}
 
 
 
 
 
 static uint32_t EBS_parseDevID(uint8_t* devID) {
-	return BUILD_UINT32(devID[0], devID[1], devID[2], devID[3]);
+	return );
 }
 
 
 
 
 
-static void EBS_EVT_appStateChange(EbsState_t newState) {
-	switch (newState) {
-		case APP_STATE_INIT:
-			uout0("ebsState = APP_STATE_INIT");
 
-			break;
-
-		case APP_STATE_DISCOVERY:
-			uout0("ebsState = APP_STATE_DISCOVERY");
-			EBS_discoverDevices();
-			break;
-
-		case APP_STATE_UPLOAD:
-			//TODO: send the discTxList to BC using UART
-			uout0("ebsState = APP_STATE_UPLOAD");
-
-			break;
-
-		case APP_STATE_POLLING:
-			uout0("ebsState = APP_STATE_POLLING");
-			Semaphore_post(targetConnSem); // enable target connect
-
-			break;
-
-		default:
-			break;
-	}
-}
 
 
 //static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState) {
@@ -1023,17 +1025,17 @@ static void EBS_EVT_appStateChange(EbsState_t newState) {
 //}
 
 
-static void EBS_updateTargetList(uint8_t* txID) {
-	uint8_t index;
-	for (index = 0; index < scanRes; index++)
-		if (memcmp(discTxList[index].txDevID, txID, ETX_DEVID_LEN) == NULL)
-			break;
-	memcpy(pVacantSlot->addr, discTxList[index].addr, B_ADDR_LEN);
-	memcpy(pVacantSlot->txDevID, discTxList[index].txDevID, ETX_DEVID_LEN);
-	pVacantSlot->addrType = discTxList[index].addrType;
-	// TODO: need a targetList manager to find next vacant
-
-}
+//static void EBS_updateTargetList(uint8_t* txID) {
+//	uint8_t index;
+//	for (index = 0; index < scanRes; index++)
+//		if (memcmp(discTxList[index].txDevID, txID, ETX_DEVID_LEN) == NULL)
+//			break;
+//	memcpy(pVacantSlot->addr, discTxList[index].addr, B_ADDR_LEN);
+//	memcpy(pVacantSlot->txDevID, discTxList[index].txDevID, ETX_DEVID_LEN);
+//	pVacantSlot->addrType = discTxList[index].addrType;
+//	// TODO: need a targetList manager to find next vacant
+//
+//}
 
 #if defined (NPI_USE_UART) && defined (NPI_ENABLE)
 static void EBS_TLpacketParser(void) {
