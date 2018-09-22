@@ -15,13 +15,13 @@ class SerRead(threading.Thread):
 				break
 			if ser.in_waiting != 0:
 				sOutMsg = ser.read(ser.in_waiting)
-				print('>>'+sOutMsg.hex())
+				print('\n>>'+sOutMsg.hex()+'\n<<')
 
 	def breakLoop(self):
 		self.exFlag = 1;
 
 		
-ser = serial.Serial('COM9', 119200, timeout = 5)
+ser = serial.Serial('COM6', 119200, timeout = 5)
 serRead = SerRead()
 serRead.start()
 
