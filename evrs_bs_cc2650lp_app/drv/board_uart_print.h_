@@ -1,0 +1,55 @@
+/*****************************************************************************
+ * 
+ * @filepath 	/evrs_bs_cc2650lp_app/drv/board_uart_print.h
+ * 
+ * @project 	evrs_bs_cc2650lp_app
+ * 
+ * @brief 		TODO
+ * 
+ * @date 		22 Sep. 2018
+ * 
+ * @author		Ziyi@outlook.com.au
+ *
+ ****************************************************************************/
+
+#ifndef BOARDUARTDISPLAY_H
+#define BOARDUARTDISPLAY_H
+
+#include <stdint.h>
+
+void Board_UartPrint(uintptr_t fmt, uintptr_t a0,
+        uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4)
+
+#if defined(DEBUG_DISP)
+#  define uout0(fmt) \
+    Board_UartPrint((uintptr_t)(fmt), 0, 0, 0, 0, 0)
+
+#  define uout1(fmt, a0) \
+    Board_UartPrint((uintptr_t)(fmt), (uintptr_t)(a0), 0, 0, 0, 0)
+
+#  define uout2(fmt, a0, a1) \
+    Board_UartPrint((uintptr_t)(fmt), (uintptr_t)(a0), (uintptr_t)(a1), \
+    		0, 0, 0)
+
+#  define uout3(fmt, a0, a1, a2) \
+    Board_UartPrint((uintptr_t)(fmt), (uintptr_t)(a0), (uintptr_t)(a1), \
+    		(uintptr_t)(a2), 0, 0)
+
+#  define uout4(fmt, a0, a1, a2, a3) \
+    Board_UartPrint((uintptr_t)(fmt), (uintptr_t)(a0), (uintptr_t)(a1), \
+    		(uintptr_t)(a2), (uintptr_t)(a3), 0)
+
+#  define uout5(fmt, a0, a1, a2, a3, a4) \
+    Board_UartPrint((uintptr_t)(fmt), (uintptr_t)(a0), (uintptr_t)(a1), \
+    		(uintptr_t)(a2), (uintptr_t)(a3), (uintptr_t)(a4)
+#else // DEBUG_DISP
+#  define uout0(fmt)
+#  define uout1(fmt, a0)
+#  define uout2(fmt, a0, a1)
+#  define uout3(fmt, a0, a1, a2)
+#  define uout4(fmt, a0, a1, a2, a3)
+#  define uout5(fmt, a0, a1, a2, a3, a4)
+#endif // DEBUG_DISP
+
+
+#endif // BOARDUARTDISPLAY_H

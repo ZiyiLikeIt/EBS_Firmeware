@@ -37,20 +37,14 @@ extern "C"
  * MACROS
  */
 
-
-
-// Max number of connections
-#define MAX_NUM_BLE_CONNS		1
-
 /*********************************************************************
  * FUNCTIONS
  */
 /*
  * Task creation function for the Simple BLE Central.
  */
-extern void EBS_createTask(void);
-extern uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status,
-		uint8_t *pData);
+void EBS_createTask(void);
+uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData);
 
 /*********************************************************************
 *********************************************************************/

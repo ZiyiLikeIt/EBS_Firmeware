@@ -1,0 +1,34 @@
+/*****************************************************************************
+ * 
+ * @filepath 	/evrs_bs_cc2650lp_app/drv/board_uart_print.c
+ * 
+ * @project 	evrs_bs_cc2650lp_app
+ * 
+ * @brief 		TODO
+ * 
+ * @date 		22 Sep. 2018
+ * 
+ * @author		Ziyi@outlook.com.au
+ *
+ ****************************************************************************/
+
+#include "board_uart_print.h"
+#include <xdc/runtime/System.h>
+#include "tl.h"
+
+typedef const char  *uStr;   /* null terminated immutable string */
+
+void Board_UartPrint(uintptr_t fmt, uintptr_t a0,
+        uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4) {
+
+	char* strBuf;
+	uint16_t strBufLen = 100;
+
+	System_snprintf(strBuf, strBufLen-2, (uStr)fmt, a0, a1, a2, a3, a4);
+
+	strSize = strlen(strBuf);
+	strBuf[strSize++] = '\r';
+	strBuf[strSize++] = '\n';
+
+	TLwrite(strBuf, strSize);
+}
