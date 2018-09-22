@@ -37,26 +37,6 @@ extern "C"
  * MACROS
  */
 
-
-// Simple BLE Central Task Events
-#define EBS_PAIRING_STATE_EVT     		0x0001
-#define EBS_STATE_CHANGE_EVT          	0x0002
-#define EBS_CONNECTING_TIMEOUT_EVT	  	0x0004
-#define EBS_STACK_MSG_EVT				0x0008
-#define EBS_UMSG_RECV_EVT				0x0010
-#define EBS_CONN_DONE_EVT				0x0020
-
-#if defined (NPI_USE_UART) && defined(NPI_ENABLE)
-//events that TL will use to control the driver
-#define MRDY_EVT       	      		0x0100
-#define TRANSPORT_RX_EVT       		0x0200
-#define TRANSPORT_TX_DONE_EVT  		0x0400
-#endif //TL
-
-
-// Max number of connections
-#define MAX_NUM_BLE_CONNS		4
-
 /*********************************************************************
  * FUNCTIONS
  */

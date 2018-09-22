@@ -11,12 +11,17 @@
  * @author		Ziyi@outlook.com.au
  *
  ****************************************************************************/
-/*
+/*****************************************************************************
  * Includes
  */
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-/*
+#include <bcomdef.h>
+#include "ebs_predefined.h"
+
+/*****************************************************************************
  * Typedefs
  */
 // Discovered ETX info
@@ -32,21 +37,22 @@ typedef struct EtxInfo_t{
 } EtxInfo_t;
 
 
-/*
+/*****************************************************************************
  * Global variables
  */
 // Discovered ETX List
-extern EtxInfo_t connList[MAX_NUM_BLE_CONNS];
+extern EtxInfo_t connList[MAX_CONNS];
 
 
 
-/*
- * External functions
+/*****************************************************************************
+ * Global functions
  */
 void EBS_connMgr_resetList();
 bool EBS_connMgr_findSvcUuid(uint16_t uuid, uint8_t *pData, uint8_t dataLen);
 bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen);
 void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType);
-void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen);
-EtxInfo_t* EBS_connMgr_findUsingConnHdl(uint16_t tConnHdl);
+void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen);
+EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl);
+EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr);
 

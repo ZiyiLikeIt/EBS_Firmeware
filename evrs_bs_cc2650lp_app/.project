@@ -244,7 +244,7 @@
 		<link>
 			<name>Drivers/Display/DisplayUART.c</name>
 			<type>1</type>
-			<locationURI>TI_RTOS_DRIVERS_BASE/ti/mw/display/DisplayUART.h</locationURI>
+			<locationURI>TI_RTOS_DRIVERS_BASE/ti/mw/display/DisplayUART.c</locationURI>
 		</link>
 		<link>
 			<name>Drivers/Display/DisplayUART.h</name>

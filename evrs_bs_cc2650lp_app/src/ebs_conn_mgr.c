@@ -11,14 +11,21 @@
  * @author		Ziyi@outlook.com.au
  *
  ****************************************************************************/
+/*****************************************************************************
+ * Includes
+ */
+#include "ebs_conn_mgr.h"
+#include "ebs_predefined.h"
+#include <gap.h>
+#include <gatt.h>
 
 /*****************************************************************************
  * Macros
  */
 /** for list initial **/
-#define DEFAULT_CONNHDL = 0xFFFE
-#define DEFAULT_SVCHDL = 0
-#define DEFAULT_ADTYPE = 0
+#define DEFAULT_CONNHDL		0xFFFE
+#define DEFAULT_SVCHDL		0x0000
+#define DEFAULT_ADTYPE		0
 
 /** advert data types **/
 #define ETX_ADTYPE_DEST			0xAF
@@ -28,7 +35,7 @@
  * Global variables
  */
 // Discovered ETX List
-EtxInfo_t connList[MAX_NUM_BLE_CONNS];
+EtxInfo_t connList[MAX_CONNS];
 
 /*****************************************************************************
  * Local variables
@@ -48,15 +55,13 @@ static uint8_t scanRes = 0;
 /** reset the list **/
 void EBS_connMgr_resetList() {
 	scanRes = 0;
-	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
-		connList[i] = {
-				.addrType = DEFAULT_ADTYPE;
-				.connHdl = DEFAULT_CONNHDL;
-				.svcStartHdl = DEFAULT_SVCHDL;
-				.svcEndHdl = DEFAULT_SVCHDL;
-				.state = EBS_POLL_STATE_IDLE;
-				.data = 0;
-		};
+	for (uint8_t i = 0; i < MAX_CONNS; i++) {
+		connList[i].addrType = DEFAULT_ADTYPE;
+		connList[i].connHdl = GAP_CONNHANDLE_INIT;
+		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
+		connList[i].svcEndHdl = GATT_INVALID_HANDLE;
+		connList[i].state = POLL_STATE_IDLE;
+		connList[i].data = 0;
 		memset(connList[i].addr, 0x00, B_ADDR_LEN);
 		memset(connList[i].txDevID, 0x00, ETX_DEVID_LEN);
 	}
@@ -144,7 +149,7 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 	uint8_t i;
 
 	// If result count not at max
-	if (scanRes < MAX_NUM_BLE_CONNS)
+	if (scanRes < MAX_CONNS)
 	{
 		// Check if device is already in scan results
 		for (i = 0; i < scanRes; i++)
@@ -161,47 +166,50 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 }
 
 /** add txDevID to the list **/
-void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen) {
+void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen) {
 	uint8_t scanRspLen;
 	uint8_t scanRspType;
 	uint8_t *pEnd;
-	uint8_t index;
-	for (index = 0; index < scanRes; index++) {
-		if (memcmp(pEvent->deviceInfo.addr, discTxList[index].addr, B_ADDR_LEN)
-				== 0) {
-			pEnd = pEvtData + dataLen - 1;
 
-			// While end of data not reached
-			while (pEvtData < pEnd) {
-				// Get length of next scan response item
-				scanRspLen = *pEvtData++;
-				if (scanRspLen > 0) {
-					scanRspType = *pEvtData;
+	pEnd = pEvtData + dataLen - 1;
+	// While end of data not reached
+	while (pEvtData < pEnd) {
+		// Get length of next scan response item
+		scanRspLen = *pEvtData++;
+		if (scanRspLen > 0) {
+			scanRspType = *pEvtData;
 
-					// If scan response type is for local name
-					if (scanRspType == ETX_ADTYPE_DEVID) {
-						//Set name length in the device struct.
-						pEvtData++;
+			// If scan response type is for local name
+			if (scanRspType == ETX_ADTYPE_DEVID) {
+				//Set name length in the device struct.
+				pEvtData++;
 
-						//Copy device id from the scan response data
-						memcpy(connList[scanRes].txDevID, pEvtData,
-								ETX_DEVID_LEN);
-					}
-				} else {
-					// Go to next scan response item
-					pEvtData += scanRspLen;
-				}
+				//Copy device id from the scan response data
+				memcpy(pETX->txDevID, pEvtData, ETX_DEVID_LEN);
 			}
+		} else {
+			// Go to next scan response item
+			pEvtData += scanRspLen;
 		}
 	}
 }
 
 /** find element using connHdl **/
-EtxInfo_t* EBS_connMgr_findUsingConnHdl(uint16_t tConnHdl) {
+EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl) {
 	uint8_t index = 0;
 	EtxInfo_t *rtn = NULL;
 	for (index = 0; index < scanRes; index++)
 		if (connList[index].connHdl == tConnHdl)
+			rtn = connList + index;
+	return rtn;
+}
+
+/** find element using addr **/
+EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
+	uint8_t index = 0;
+	EtxInfo_t *rtn = NULL;
+	for (index = 0; index < scanRes; index++)
+		if (memcmp(pAddr, connList[index].addr, B_ADDR_LEN) == 0)
 			rtn = connList + index;
 	return rtn;
 }

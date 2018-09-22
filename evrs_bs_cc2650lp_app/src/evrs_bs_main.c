@@ -23,6 +23,7 @@
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Queue.h>
 
+#include "ebs_predefined.h"
 #include "bcomdef.h"
 
 #include "hci_tl.h"
@@ -41,6 +42,8 @@
 #include "board_led.h"
 #include "board_display.h"
 
+#include "ebs_conn_mgr.h"
+
 #if defined (NPI_USE_UART) && defined (NPI_ENABLE)
 #include "tl.h"
 #endif //TL
@@ -50,126 +53,10 @@
 #include "ble_user_config.h"
 
 /*********************************************************************
- * MACROS
- */
-
-/*********************************************************************
- * CONSTANTS
- */
-
-// Maximum number of scan responses
-#define MAX_SCAN_RES		20
-
-// Scan duration in ms
-#define DEFAULT_SCAN_DURATION                 10000
-
-// Discovery mode (limited, general, all)
-#define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
-
-// TRUE to use active scan
-#define DEFAULT_DISCOVERY_ACTIVE_SCAN         TRUE
-
-// TRUE to use white list during discovery
-#define DEFAULT_DISCOVERY_WHITE_LIST          FALSE
-
-// TRUE to use high scan duty cycle when creating link
-#define LINK_HIGH_DUTY_CYCLE          TRUE
-
-// TRUE to use white list when creating link
-#define LINK_WHITE_LIST               FALSE
-
-// Initial minimum connection interval (units of 1.25 ms.)
-#define INITIAL_MIN_CONN_INTERVAL 	      	  16
-
-// Initial minimum connection interval (units of 1.25 ms.)
-#define INITIAL_MAX_CONN_INTERVAL             400
-
-// Initial slave latency
-#define INITIAL_SLAVE_LATENCY 		      	  0
-
-// Initial supervision timeout (units of 1.25 ms)
-#define INITIAL_CONN_TIMEOUT          	      700
-
-// Default RSSI polling period in ms
-#define DEFAULT_RSSI_PERIOD                   1000
-
-// Whether to enable automatic parameter update request when a connection is
-// formed
-#define DEFAULT_ENABLE_UPDATE_REQUEST         FALSE
-
-// Minimum connection interval (units of 1.25ms) if automatic parameter update
-// request is enabled
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL      80
-
-// Maximum connection interval (units of 1.25ms) if automatic parameter update
-// request is enabled
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL      160
-
-// Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_UPDATE_SLAVE_LATENCY          0
-
-// Supervision timeout value (units of 10ms) if automatic parameter update
-// request is enabled
-#define DEFAULT_UPDATE_CONN_TIMEOUT           600
-
-// Default service discovery timer delay in ms
-#define SVC_DISCOVERY_DELAY           500
-
-// TRUE to filter discovery results on desired service UUID
-#define DEV_DISC_BY_SVC_UUID          TRUE
-
-// Length of bd addr as a string
-#define B_ADDR_STR_LEN                        15
-
-// Task configuration
-#define EBS_TASK_PRIORITY                     1
-
-#ifndef EBS_TASK_STACK_SIZE
-#define EBS_TASK_STACK_SIZE                   864
-#endif
-
-// GATT Params
-// EVRS Profile Service UUID
-#define EVRSPROFILE_SERV_UUID 			0xAFF0
-#define EVRSPROFILE_CMD_UUID        	0xAFF2
-#define EVRSPROFILE_DATA_UUID         	0xAFF4
-
-
-#define ETX_DEVID_LEN 			4
-#define ETX_DEVID_PREFIX		0x95
-
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
-#define APP_TL_BUFF_SIZE   		128
-#endif //TL
-
-// Application states
-typedef enum EbsState_t{
-	APP_STATE_INIT,
-	APP_STATE_IDLE,
-	APP_STATE_DISC,
-	APP_STATE_POLL
-} EbsState_t;
-
-// Polling states
-typedef enum EbsPollState_t{
-	POLL_STATE_IDLE,
-	POLL_STATE_READ,
-	POLL_STATE_END
-} EbsPollState_t;
-
-// GATT profile ID
-typedef enum ProfileId_t{
-	EVRSPROFILE_CMD,
-	EVRSPROFILE_DATA
-} ProfileId_t;
-
-
-/*********************************************************************
  * TYPEDEFS
  */
-
 // App event passed from profiles.
-typedef struct EbsEvt_t{
+typedef struct EbsEvt_t {
 	appEvtHdr_t hdr; // event header
 	uint8_t *pData;  // event data
 } EbsEvt_t;
@@ -179,13 +66,18 @@ typedef struct EbsEvt_t{
  * GLOBAL VARIABLES
  */
 
-// Discovered ETX List
-extern EtxInfo_t connList[MAX_NUM_BLE_CONNS];
+
 
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
+// Discovered ETX List
+extern EtxInfo_t connList[MAX_CONNS];
 
+#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+//used to store data read from transport layer
+extern uint8_t appRxBuf[APP_TL_BUFF_SIZE];
+#endif //TL
 
 
 /*********************************************************************
@@ -206,7 +98,7 @@ static Queue_Struct appMsg;
 static Queue_Handle appMsgQueue;
 
 // Task pending events
-static uint16_t events = 0;
+//static uint16_t events = 0;
 
 // Task configuration
 Task_Struct ebsTask;
@@ -216,10 +108,10 @@ Char ebsTaskStack[EBS_TASK_STACK_SIZE];
 static const uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "EVRS BaseStation";
 
 // Number of scan results and scan result index
-static uint8_t scanRes;
+//static uint8_t scanRes;
 
 // Scanning state
-static bool scanningStarted = FALSE;
+//static bool scanningStarted = FALSE;
 
 // Connection handle of current connection
 //static uint16_t connHandleList[MAX_NUM_BLE_CONNS] = GAP_CONNHANDLE_INIT;
@@ -229,60 +121,48 @@ static EbsState_t ebsState = APP_STATE_INIT;
 
 
 // Base Station Identifier
-uint8_t BSID = 0x02;
+uint8_t BSID = 0x00;
 
 
 
 // sem for connecting
 Semaphore_Handle targetConnSem;
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
-//used to store data read from transport layer
-static uint8_t appRxBuf[APP_TL_BUFF_SIZE];
-#endif //TL
+
 
 /*********************************************************************
- * @TAG LOCAL FUNCTIONS
+ * @TAG Local Functions
  */
 /** Task Functions **/
 static void EBS_init(void);
 static void EBS_taskFxn(UArg a0, UArg a1);
 
-/** Internal message routing **/
-static void EBS_processGATTMsg(gattMsgEvent_t *pMsg);
+/** Internal message gen and routing **/
 static void EBS_processStackMsg(ICall_Hdr *pMsg);
 static void EBS_processAppMsg(EbsEvt_t *pMsg);
-static void EBS_processRoleEvent(gapCentralRoleEvent_t *pEvent);
-static void EBS_processGATTDiscEvent(gattMsgEvent_t *pMsg);
-static void EBS_startDiscovery(void);
-static bool EBS_findSvcUuid(uint16_t uuid, uint8_t *pData,
-		uint8_t dataLen);
-static void EBS_discoverDevices(void);
-void EBS_timeoutConnecting(UArg arg0);
-static bool EBS_checkBSId(uint8_t bsID, uint8_t *pEvtData, uint8_t dataLen);
-static void EBS_addDeviceInfo(uint8_t *pAddr, uint8_t addrType);
-static void EBS_addDeviceID(uint8_t index, uint8_t *pEvtData,
-		uint8_t dataLen);
-static void EBS_processPairState(uint8_t pairState, uint8_t status);
 
+/** Callbacks **/
+static uint8_t EBS_CB_GAPRoleStateChange(gapCentralRoleEvent_t *pEvent);
+static void EBS_CB_connectingTimeout(UArg arg0);
+static void EBS_CB_pairStateChange(uint16_t connHandle, uint8_t pairState,
+        uint8_t status);
+static void EBS_CBm_appStateChange(EbsState_t newState);
 
-static uint8_t EBS_eventCB(gapCentralRoleEvent_t *pEvent);
-static void EBS_pairStateCB(uint16_t connHandle, uint8_t pairState,
-		uint8_t status);
+/** Event Process Service **/
+static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent);
+static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg);
+static void EBS_EVT_pairStateChange(uint8_t pairState, uint8_t status);
+static void EBS_EVT_appStateChange(EbsState_t newState);
 
-void EBS_startDiscHandler(UArg a0);
+/** App State Functions **/
+static void EBS_Disc_processStart(void);
+static void EBS_Poll_enquireStart(void);
+static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg);
 
-static void EBS_updateEbsState(EbsState_t newState);
-static void EBS_stateChange(EbsState_t newState);
-static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState);
-
-static void EBS_updateTargetList(uint8_t* txID);
-
-static uint32_t EBS_parseDevID(uint8_t* devID);
-
+/** UMSG Functions **/
 #if defined (NPI_USE_UART) && defined (NPI_ENABLE)
-//TL packet parser
-static void EBS_TLpacketParser(void);
+static void EBS_CB_umsgReceive(void);
+static void EBS_EVT_umsgProcess(uint8_t len, uint8_t* pData)
 #endif //TL
 
 /*********************************************************************
@@ -291,18 +171,18 @@ static void EBS_TLpacketParser(void);
 
 // GAP Role Callbacks
 static gapCentralRoleCB_t EBS_roleCB = {
-		EBS_eventCB // Event callback
+		EBS_CB_GAPRoleStateChange // Event callback
 		};
 
 // Bond Manager Callbacks
 static gapBondCBs_t EBS_bondCB = {
-NULL, // Passcode callback
-		EBS_pairStateCB                  // Pairing state callback
+		NULL, // Passcode callback
+		EBS_CB_pairStateChange	// Pairing state callback
 		};
 
 #if defined (NPI_USE_UART) && defined (NPI_ENABLE)
 static TLCBs_t EBS_TLCBs = {
-		EBS_TLpacketParser // parse data read from transport layer
+		EBS_CB_umsgReceive // parse data read from transport layer
 		};
 #endif
 
@@ -335,8 +215,6 @@ void EBS_createTask(void) {
  * @return  none
  */
 static void EBS_init(void) {
-	uint8_t i;
-
 	// ******************************************************************
 	// N0 STACK API CALLS CAN OCCUR BEFORE THIS CALL TO ICall_registerApp
 	// ******************************************************************
@@ -354,15 +232,15 @@ static void EBS_init(void) {
 	GAP_SetParamValue(TGAP_CONN_EST_LATENCY, INITIAL_SLAVE_LATENCY);
 
 	// Construct clock for connecting timeout
-	Util_constructClock(&connectingClock, EBS_timeoutConnecting,
-			DEFAULT_SCAN_DURATION, 0, false, 0);
+//	Util_constructClock(&connectingClock, EBS_timeoutConnecting,
+//			DEFAULT_SCAN_DURATION, 0, false, 0);
 
 	Board_initLEDs();
 	Board_Display_Init();
 
 	// Setup Central Profile
 	{
-		uint8_t maxScanRes = MAX_SCAN_RES;
+		uint8_t maxScanRes = MAX_CONNS;
 
 		GAPCentralRole_SetParameter(GAPCENTRALROLE_MAX_SCAN_RES,
 				sizeof(uint8_t), &maxScanRes);
@@ -486,72 +364,9 @@ static void EBS_taskFxn(UArg a0, UArg a1) {
 }
 
 /*********************************************************************
- * @TAG Internal message routing
+ * @TAG Internal message gen and routing
  */
-/** ble stack event processing function **/
-static void EBS_processStackMsg(ICall_Hdr *pMsg) {
-	switch (pMsg->event)
-	{
-		case GAP_MSG_EVENT:
-			EBS_processRoleEvent((gapCentralRoleEvent_t *) pMsg);
-			break;
-
-		case GATT_MSG_EVENT:
-			EBS_processGATTMsg((gattMsgEvent_t *) pMsg);
-			break;
-
-		default:
-			break;
-	}
-}
-
-/** Central application event processing function **/
-static void EBS_processAppMsg(EbsEvt_t *pMsg) {
-	switch (pMsg->hdr.event)
-	{
-		case EBS_STACK_MSG_EVT:
-			EBS_processStackMsg((ICall_Hdr *) pMsg->pData);
-
-			// Free the stack message
-			ICall_freeMsg(pMsg->pData);
-			break;
-
-		case APP_STATE_CHANGE_EVT:
-			EBS_stateChange((EbsState_t)pMsg->hdr.state);
-			break;
-
-		// Pairing event
-		case EBS_PAIRING_STATE_EVT:
-		{
-			EBS_processPairState(pMsg->hdr.state, *pMsg->pData);
-
-			ICall_free(pMsg->pData);
-			break;
-		}
-
-		// Connecting to device timed out
-		case EBS_CONNECTING_TIMEOUT_EVT:
-		{
-			GAPCentralRole_TerminateLink(pConnectingSlot->connHdl);
-		}
-
-		default:
-			// Do nothing.
-			break;
-	}
-}
-
-/*********************************************************************
- * @fn      EBS_enqueueMsg
- *
- * @brief   Creates a message and puts the message in RTOS queue.
- *
- * @param   event - message event.
- * @param   state - message state.
- * @param   pData - message data pointer.
- *
- * @return  TRUE or FALSE
- */
+/** Creates a message and puts the message in RTOS queue **/
 uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData) {
     EbsEvt_t *pMsg = ICall_malloc(sizeof(EbsEvt_t));
     // Create dynamic pointer to message.
@@ -567,6 +382,56 @@ uint8_t EBS_enqueueMsg(uint8_t event, uint8_t status, uint8_t *pData) {
     return FALSE;
 }
 
+/** ble stack event processing function **/
+static void EBS_processStackMsg(ICall_Hdr *pMsg) {
+	switch (pMsg->event)
+	{
+		case GAP_MSG_EVENT:
+			EBS_EVT_GAPRoleChange((gapCentralRoleEvent_t *) pMsg);
+			break;
+
+		case GATT_MSG_EVENT:
+			EBS_EVT_GATTMsgReceive((gattMsgEvent_t *) pMsg);
+			break;
+
+		default:
+			break;
+	}
+}
+
+/** Central application event processing function **/
+static void EBS_processAppMsg(EbsEvt_t *pMsg) {
+	switch (pMsg->hdr.event) {
+		case EBS_GAP_STATE_CHG_EVT:
+			EBS_processStackMsg((ICall_Hdr *) pMsg->pData);
+
+			// Free the stack message
+			ICall_freeMsg(pMsg->pData);
+		break;
+
+		case EBS_STATE_CHANGE_EVT:
+			EBS_EVT_appStateChange((EbsState_t) pMsg->hdr.state);
+		break;
+
+			// Pairing event
+		case EBS_PAIRING_STATE_EVT:
+			EBS_EVT_pairStateChange(pMsg->hdr.state, *pMsg->pData);
+
+			ICall_free(pMsg->pData);
+		break;
+
+			// Connecting to device timed out
+		case EBS_CONNECTING_TIMEOUT_EVT:
+			//GAPCentralRole_TerminateLink(pConnectingSlot->connHdl);
+		break;
+
+		default:
+			// Do nothing.
+		break;
+	}
+}
+
+
 /*****************************************************************************
  * @TAG Callbacks
  */
@@ -581,10 +446,10 @@ static uint8_t EBS_CB_GAPRoleStateChange(gapCentralRoleEvent_t *pEvent) {
 }
 
 /** Post event if connecting is timed out **/
-static void EBS_CB_connectingTimeout(UArg arg0) {
-    if (pConnectingSlot != NULL)
-        EBS_enqueueMsg(EBS_CONNECTING_TIMEOUT_EVT, 0, NULL);
-}
+//static void EBS_CB_connectingTimeout(UArg arg0) {
+//    if (pConnectingSlot != NULL)
+//        EBS_enqueueMsg(EBS_CONNECTING_TIMEOUT_EVT, 0, NULL);
+//}
 
 /** pair state cb **/
 static void EBS_CB_pairStateChange(uint16_t connHandle, uint8_t pairState,
@@ -603,7 +468,7 @@ static void EBS_CB_pairStateChange(uint16_t connHandle, uint8_t pairState,
 
 /** app state change cb (manual) **/
 static void EBS_CBm_appStateChange(EbsState_t newState) {
-    EBS_enqueueMsg(APP_STATE_CHANGE_EVT, newState, NULL);
+    EBS_enqueueMsg(EBS_STATE_CHANGE_EVT, newState, NULL);
 }
 
 /*****************************************************************************
@@ -615,11 +480,11 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 	{
 		case GAP_DEVICE_INIT_DONE_EVENT:
 		{
-			//maxPduSize = pEvent->initDone.dataPktLen;
-			uout0("EVRS BS initialized");
-			uout0(Util_convertBdAddr2Str(pEvent->initDone.devAddr));
-			uout1("BS ID: 0x%02x", BSID);
-			Board_ledControl(BOARD_LED_ID_R, BOARD_LED_STATE_FLASH, 300);
+			EBS_CBm_appStateChange(APP_STATE_INIT);
+//			uout0("EVRS BS initialized");
+//			uout0(Util_convertBdAddr2Str(pEvent->initDone.devAddr));
+//			uout1("BS ID: 0x%02x", BSID);
+//			Board_ledControl(BOARD_LED_ID_R, BOARD_LED_STATE_FLASH, 300);
 		}
 			break;
 
@@ -627,39 +492,33 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 		{
 
 			//Find tx device address by UUID
-			if (EBS_findSvcUuid(EVRSPROFILE_SERV_UUID,
+			if (EBS_connMgr_findSvcUuid(EVRSPROFILE_SERV_UUID,
 					pEvent->deviceInfo.pEvtData, pEvent->deviceInfo.dataLen) &&
-				EBS_checkBSId(BSID,
-					pEvent->deviceInfo.pEvtData, pEvent->deviceInfo.dataLen))
-			{
-				EBS_addDeviceInfo(pEvent->deviceInfo.addr,
+					EBS_connMgr_checkBSID(BSID,
+					pEvent->deviceInfo.pEvtData, pEvent->deviceInfo.dataLen)) {
+				EBS_connMgr_addAddr(pEvent->deviceInfo.addr,
 						pEvent->deviceInfo.addrType);
 			}
 
 			// Check if the discovered device is already in scan results
-			uint8_t index;
-			for (index = 0; index < scanRes; index++)
-			{
-				if (memcmp(pEvent->deviceInfo.addr, discTxList[index].addr, B_ADDR_LEN)
-						== 0)
-				{
+			EtxInfo_t* pETX = EBS_connMgr_findByAddr(pEvent->deviceInfo.addr);
+			if (pETX != NULL) {
 					//Update deviceInfo entry with the name
-					EBS_addDeviceID(index,
+					EBS_connMgr_addDeviceID(pETX,
 							pEvent->deviceInfo.pEvtData,
 							pEvent->deviceInfo.dataLen);
-				}
 			}
 		}
-			break;
+		break;
 
 		case GAP_DEVICE_DISCOVERY_EVENT:
 		{
 			// discovery complete
-			scanningStarted = FALSE;
+//			scanningStarted = FALSE;
 			// initialize scan index to first
-			scanIdx = 0;
-			uout1("%d Device(s) found", scanRes);
-			EBS_updateEbsState(APP_STATE_POLL);
+//			scanIdx = 0;
+//			uout1("%d Device(s) found", scanRes);
+			EBS_CBm_appStateChange(APP_STATE_POLL);
 		}
 			break;
 
@@ -670,36 +529,38 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 				//Connect to selected device
 				//state = BLE_STATE_CONNECTED;
 				//connHandle = pEvent->linkCmpl.connectionHandle;
-				procedureInProgress = TRUE;
+				//procedureInProgress = TRUE;
 
 				// If service discovery not performed initiate service discovery
-				if (charHdl[0] == 0)
-				{
-					Util_startClock(&startEnquireClock);
-				}
+//				if (charHdl[0] == 0)
+//				{
+//					Util_startClock(&startEnquireClock);
+//				}
 
 				//Find device ID in discTxList struct
-				uint8_t i;
-				for (i = 0; i < scanRes; i++)
-				{
-					if (memcmp(pEvent->linkCmpl.devAddr, targetList[i].addr,
-					B_ADDR_LEN) == NULL)
-					{
-						break;
-					}
+//				uint8_t i;
+//				for (i = 0; i < scanRes; i++)
+//				{
+//					if (memcmp(pEvent->linkCmpl.devAddr, targetList[i].addr,
+//					B_ADDR_LEN) == NULL)
+//					{
+//						break;
+//					}
+//				}
+				EtxInfo_t* pETX = EBS_connMgr_findByAddr(pEvent->linkCmpl.devAddr);
+				if (pETX == NULL) {
+					//GAPCentralRole_TerminateLink(pEvent->linkCmpl.connectionHandle);
+					break;
 				}
-				targetList[i].connHdl = pEvent->linkCmpl.connectionHandle;
-				uout1("Tx ID 0x%08x Connected",
-				      BUILD_UINT32(targetList[i].txDevID[0],
-				                   targetList[i].txDevID[1],
-				                   targetList[i].txDevID[2],
-				                   targetList[i].txDevID[3]);
-				uout1("Tx Addr %s", Util_convertBdAddr2Str(pEvent->linkCmpl.devAddr));
+				pETX->connHdl = pEvent->linkCmpl.connectionHandle;
+				uout1("Tx ID 0x%08x Connected", BUILD_UINT32(pETX->txDevID[0],
+						pETX->txDevID[1],pETX->txDevID[2],pETX->txDevID[3]));
+//				uout1("Tx Addr %s", Util_convertBdAddr2Str(pEvent->linkCmpl.devAddr));
 
 			} else
 			{
 				//connHandle = GAP_CONNHANDLE_INIT;
-				discState = EBS_DISC_STATE_IDLE;
+				//discState = EBS_DISC_STATE_IDLE;
 
 				uout1("Connect Failed: 0x%02x",pEvent->gap.hdr.status);
 			}
@@ -710,11 +571,6 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 		{
 			//state = BLE_STATE_IDLE;
 			//connHandle = GAP_CONNHANDLE_INIT;
-			discState = EBS_DISC_STATE_IDLE;
-			memset(charHdl,0x00,4);
-			profileCounter = 0;
-			procedureInProgress = FALSE;
-			EBS_updatePollState(1, POLL_STATE_IDLE);
 
 			//Clear screen and display disconnect reason
 			uout1("Disconnected: 0x%02x", pEvent->linkTerminate.reason);
@@ -729,8 +585,9 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 
 /** Process GATT messages and events **/
 static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
-	if (ebsState == APP_STATE_POLLING)
-	{
+	if (ebsState == APP_STATE_POLL) {
+		EBS_Poll_enquireMsgProcess(pMsg);
+	} else {
 		// See if GATT server was unable to transmit an ATT response
 		if (pMsg->hdr.status == blePending)
 		{
@@ -748,10 +605,8 @@ static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
 			{
 				// After a successful read, display the read value
 				uout1("Read rsp: 0x%02x", pMsg->msg.readRsp.pValue[0]);
-				EBS_updatePollState(0, POLL_STATE_WRITE);
 			}
 
-			procedureInProgress = FALSE;
 		} else if ((pMsg->method == ATT_WRITE_RSP)
 				|| ((pMsg->method == ATT_ERROR_RSP)
 						&& (pMsg->msg.errorRsp.reqOpcode == ATT_WRITE_REQ)))
@@ -764,10 +619,8 @@ static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
 				// After a successful write, display the value that was written and
 				// increment value
 				uout0("Write done");
-				EBS_updatePollState(0, POLL_STATE_TERMINATE);
 			}
 
-			procedureInProgress = FALSE;
 		} else if (pMsg->method == ATT_FLOW_CTRL_VIOLATED_EVENT)
 		{
 			// ATT request-response or indication-confirmation flow control is
@@ -780,9 +633,6 @@ static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
 		{
 			// MTU size updated
 			uout1("MTU Size: %d", pMsg->msg.mtuEvt.MTU);
-		} else if (discState != EBS_DISC_STATE_IDLE)
-		{
-			EBS_processGATTDiscEvent(pMsg);
 		}
 	} // else - in case a GATT message came after a connection has dropped, ignore it.
 
@@ -792,34 +642,25 @@ static void EBS_EVT_GATTMsgReceive(gattMsgEvent_t *pMsg) {
 
 /** Process the new paring state **/
 static void EBS_EVT_pairStateChange(uint8_t pairState, uint8_t status) {
-    if (pairState == GAPBOND_PAIRING_STATE_STARTED)
-    {
-        uout0("Pairing started");
-    } else if (pairState == GAPBOND_PAIRING_STATE_COMPLETE)
-    {
-        if (status == SUCCESS)
-        {
-            uout0("Pairing success");
-        } else
-        {
-            uout1("Pairing fail: %d", status);
-        }
-    } else if (pairState == GAPBOND_PAIRING_STATE_BONDED)
-    {
-        if (status == SUCCESS)
-        {
-            uout0("Bonding success");
-        }
-    } else if (pairState == GAPBOND_PAIRING_STATE_BOND_SAVED)
-    {
-        if (status == SUCCESS)
-        {
-            uout0("Bond save succ");
-        } else
-        {
-            uout1("Bond save fail: %d", status);
-        }
-    }
+	if (pairState == GAPBOND_PAIRING_STATE_STARTED) {
+		uout0("Pairing started");
+	} else if (pairState == GAPBOND_PAIRING_STATE_COMPLETE) {
+		if (status == SUCCESS) {
+			uout0("Pairing success");
+		} else {
+			uout1("Pairing fail: %d", status);
+		}
+	} else if (pairState == GAPBOND_PAIRING_STATE_BONDED) {
+		if (status == SUCCESS) {
+			uout0("Bonding success");
+		}
+	} else if (pairState == GAPBOND_PAIRING_STATE_BOND_SAVED) {
+		if (status == SUCCESS) {
+			uout0("Bond save succ");
+		} else {
+			uout1("Bond save fail: %d", status);
+		}
+	}
 }
 
 /** app state change event **/
@@ -830,20 +671,18 @@ static void EBS_EVT_appStateChange(EbsState_t newState) {
 
             break;
 
-        case APP_STATE_DISCOVERY:
-            uout0("ebsState = APP_STATE_DISCOVERY");
-            EBS_discoverDevices();
+        case APP_STATE_IDLE:
+            uout0("ebsState = APP_STATE_IDLE");
             break;
 
-        case APP_STATE_UPLOAD:
+        case APP_STATE_DISC:
             //TODO: send the discTxList to BC using UART
-            uout0("ebsState = APP_STATE_UPLOAD");
+            uout0("ebsState = APP_STATE_DISC");
 
             break;
 
-        case APP_STATE_POLLING:
-            uout0("ebsState = APP_STATE_POLLING");
-            Semaphore_post(targetConnSem); // enable target connect
+        case APP_STATE_POLL:
+            uout0("ebsState = APP_STATE_POLL");
 
             break;
 
@@ -857,199 +696,114 @@ static void EBS_EVT_appStateChange(EbsState_t newState) {
  */
 /** Start discovery process **/
 static void EBS_Disc_processStart(void) {
-    if (!scanningStarted)
-    {
-        scanningStarted = TRUE;
+	//Clear old scan results
+	EBS_connMgr_resetList();
 
-        //Clear old scan results
-        scanRes = 0;
-        memset(discTxList, NULL, sizeof(discTxList[0]) * MAX_SCAN_RES);
-
-        uout0("Discovering...");
-        GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
-                DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                DEFAULT_DISCOVERY_WHITE_LIST);
-    } else
-    {
-        GAPCentralRole_CancelDiscovery();
-    }
+	uout0("Discovering...");
+	GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
+	DEFAULT_DISCOVERY_ACTIVE_SCAN,
+	DEFAULT_DISCOVERY_WHITE_LIST);
 }
 
 /** Start enquire process **/
 static void EBS_Poll_enquireStart(void) {
 
-	// Initialize cached handles
-	svcStartHdl = svcEndHdl = 0;
-	memset(charHdl, 0x00, 4);
-	discState = EBS_DISC_STATE_SVC;
-
-	// Discovery simple BLE service
 	uint8_t uuid[ATT_BT_UUID_SIZE] = {
 			LO_UINT16(EVRSPROFILE_SERV_UUID),
 			HI_UINT16(EVRSPROFILE_SERV_UUID) };
-	VOID GATT_DiscPrimaryServiceByUUID(pConnectingSlot->connHdl, uuid,
-			ATT_BT_UUID_SIZE, selfEntity);
-
+	// Start polling process
+	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
+		connList[i].state = POLL_STATE_BUSY;
+		VOID GATT_DiscPrimaryServiceByUUID(connList[i].connHdl, uuid,
+					ATT_BT_UUID_SIZE, selfEntity);
+	}
 }
 
 /** Process messages when enquiring **/
 static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg) {
-	if (discState == EBS_DISC_STATE_SVC)
-	{
-		// Service found, store handles
-		if (pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP
-				&& pMsg->msg.findByTypeValueRsp.numInfo > 0)
-		{
-			svcStartHdl = ATT_ATTR_HANDLE(
-					pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
-			svcEndHdl = ATT_GRP_END_HANDLE(
-					pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
-		}
-
-		// If procedure complete
-		if (((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP)
-				&& (pMsg->hdr.status == bleProcedureComplete))
-				|| (pMsg->method == ATT_ERROR_RSP))
-		{
-			if (svcStartHdl != 0)
-			{
-				// Read Data by UUID
-				attAttrBtType_t dataUuid = {
-						.len = ATT_BT_UUID_SIZE;
-						.uuid[0] = LO_UINT16(EVRSPROFILE_DATA_UUID);
-						.uuid[1] = HI_UINT16(EVRSPROFILE_DATA_UUID);
-				};
-				attReadByTypeReq_t req = {
-						.startHandle = svcStartHdl,
-						.endHandle = svcEndHdl,
-						.type = dataUuid
-				};
-				VOID GATT_ReadUsingCharUUID(pConnectingSlot->connHdl, &req, selfEntity);
-				discState = EBS_DISC_STATE_CHAR;
+	EtxInfo_t* pCurConn = EBS_connMgr_findByConnHdl(pMsg->connHandle);
+	if (pCurConn->state == POLL_STATE_BUSY) {
+		if (pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP) {
+			// Service found, store handles
+			if (pMsg->msg.findByTypeValueRsp.numInfo > 0) {
+				pCurConn->svcStartHdl = ATT_ATTR_HANDLE(
+						pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
+				pCurConn->svcEndHdl = ATT_GRP_END_HANDLE(
+						pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
 			}
-		}
-	} else if (discState == EBS_DISC_STATE_CHAR)
-	{
-		// Characteristic found, store handle
-		if ((pMsg->method == ATT_READ_BY_TYPE_RSP)
-				&& (pMsg->msg.readByTypeRsp.numPairs > 0))
-		{
-			for (int counter = 0; counter < pMsg->msg.readByTypeRsp.numPairs; counter++)
-			{
-				switch(*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 5))
-				{
-					case LO_UINT16(EVRSPROFILE_CMD_UUID):
-						charHdl[EVRSPROFILE_CMD] = BUILD_UINT16(
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 3),
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 4));
-						profileCounter++;
-						break;
-
-					case LO_UINT16(EVRSPROFILE_DATA_UUID):
-						charHdl[EVRSPROFILE_DATA] = BUILD_UINT16(
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 3),
-								*(pMsg->msg.readByTypeRsp.pDataList + counter*7 + 4));
-						profileCounter++;
-						break;
+			// If procedure complete
+			if ((pMsg->hdr.status == bleProcedureComplete)
+					|| (pMsg->method == ATT_ERROR_RSP)) {
+				if (pCurConn->svcStartHdl != 0) {
+					// Read Data by UUID
+					attAttrType_t dataUuid = {
+							.len = ATT_BT_UUID_SIZE,
+							.uuid[0] = LO_UINT16(EVRSPROFILE_DATA_UUID),
+							.uuid[1] = HI_UINT16(EVRSPROFILE_DATA_UUID)
+					};
+					attReadByTypeReq_t req = {
+							.startHandle = pCurConn->svcStartHdl,
+							.endHandle = pCurConn->svcEndHdl,
+							.type = dataUuid
+					};
+					VOID GATT_ReadUsingCharUUID(pCurConn->connHdl, &req, selfEntity);
 				}
 			}
-		} else if ((pMsg->method == ATT_READ_BY_TYPE_RSP)
-				&& (pMsg->hdr.status == bleProcedureComplete)
-				|| (pMsg->method == ATT_ERROR_RSP))
-		{
-			uout1("%d Profile(s) Found ", profileCounter);
-			procedureInProgress = FALSE;
-			discState = EBS_DISC_STATE_IDLE;
-			EBS_updatePollState(0, POLL_STATE_READ);
 		}
+		// Read using uuid done, got response
+		if (pMsg->method == ATT_READ_BY_TYPE_RSP) {
+			// receive read response message
+			if (pMsg->msg.readByTypeRsp.numPairs > 0) {
+				pCurConn->data = pMsg->msg.readByTypeRsp.pDataList[2];
+			}
+			// If procedure complete
+			if ((pMsg->hdr.status == bleProcedureComplete)
+					|| (pMsg->method == ATT_ERROR_RSP)) {
+				pCurConn->state = POLL_STATE_IDLE;
+				#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+				// TODO send umsg
 
+				#endif
+			}
+		}
 	}
 }
 
-
-
-
-
-
-
-static uint32_t EBS_parseDevID(uint8_t* devID) {
-	return );
-}
-
-
-
-
-
-
-
-
-//static void EBS_updatePollState(uint8_t targetIndex, EbsPollState_t newState) {
-//	if (ebsState != APP_STATE_POLLING)
-//		return;
-//	targetList[targetIndex].state = newState;
-//	uint8_t rsp = 0xFF;
-//	switch (newState) {
-//		case POLL_STATE_IDLE:
-//			break;
-//
-//		case POLL_STATE_CONNECT:
-//			// TODO: need a lookup process if using parallel connections
-//			Semaphore_pend(targetConnSem, ~0); // waiting for a vacant conn slot
-//			// findNextVacantSlot(pVacantSlot) // TODO: find a vacant target connection slot
-//			pConnectingSlot = targetList + targetIndex;
-//			Util_startClock(&connectingClock);
-//			GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE, LINK_WHITE_LIST,
-//					targetList[targetIndex].addrType, targetList[targetIndex].addr);
-//			break;
-//
-//		case POLL_STATE_READ:
-//			Semaphore_post(targetConnSem); // release the sem to allow next connect
-//			pConnectingSlot = NULL;
-//			EBS_readCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA);
-//			// TODO: upload the data to EBC
-//			break;
-//
-//		case POLL_STATE_WRITE: // finish read
-//			uout0("into write process");
-//			EBS_writeCharbyHandle(targetList[targetIndex].connHdl, EVRSPROFILE_DATA, &rsp, 1);
-//
-//			break;
-//
-//		case POLL_STATE_TERMINATE: // finish write
-//			GAPCentralRole_TerminateLink(targetList[targetIndex].connHdl);
-//			break;
-//
-//		default:
-//			break;
-//	}
-//}
-
-
-//static void EBS_updateTargetList(uint8_t* txID) {
-//	uint8_t index;
-//	for (index = 0; index < scanRes; index++)
-//		if (memcmp(discTxList[index].txDevID, txID, ETX_DEVID_LEN) == NULL)
-//			break;
-//	memcpy(pVacantSlot->addr, discTxList[index].addr, B_ADDR_LEN);
-//	memcpy(pVacantSlot->txDevID, discTxList[index].txDevID, ETX_DEVID_LEN);
-//	pVacantSlot->addrType = discTxList[index].addrType;
-//	// TODO: need a targetList manager to find next vacant
-//
-//}
-
 #if defined (NPI_USE_UART) && defined (NPI_ENABLE)
-static void EBS_TLpacketParser(void) {
-	//read available bytes
-	uint8_t len = TLgetRxBufLen();
-	if (len >= APP_TL_BUFF_SIZE)
-		len = APP_TL_BUFF_SIZE;
-	TLread(appRxBuf, len);
+/*****************************************************************************
+ * UART communication
+ */
+/** Receive an UMSG **/
+static void EBS_CB_umsgReceive(void) {
+	while 1 {
+		uint8_t len = TLgetRxBufLen();
+		if (len < 2)
+			break;
+		uint8_t umsgLen = 0;
+		uint8_t umsgData[UMSG_BUFF_SIZE] = {0};
 
-	// ADD PACKET PARSER HERE
-	// for now we just echo...
+		TLread(&umsgLen, 1); // read msg size
+		if (umsgLen == 0 || umsgLen >= UMSG_BUFF_SIZE) // size verify
+			break;
+		TLread(umsgData, umsgLen-1); // read rest of msg
 
-	TLwrite(appRxBuf, len);
+		uint8_t *pData; // enqueue the msg
+		if (pData = ICall_malloc(umsgLen - 1))
+			memcpy(pData, umsgData, umsgLen - 1);
+		EBS_enqueueMsg(EBS_UMSG_RECV_EVT, umsgLen, pData);
+	}
 }
-#endif //TL
+
+/** Processing the UMSG **/
+static void EBS_EVT_umsgProcess(uint8_t len, uint8_t* pData) {
+	uint8_t opcode = *pData;
+	switch (opcode) {
+		case EBC_UMSG_READY:
+			break;
+
+	}
+}
+#endif // NPI_USE_UART
+
 
 
