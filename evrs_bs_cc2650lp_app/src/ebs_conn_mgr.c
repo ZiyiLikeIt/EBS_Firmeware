@@ -41,7 +41,7 @@ EtxInfo_t connList[MAX_CONNS];
  * Local variables
  */
 /** number of elements inside the connList **/
-static uint8_t scanRes = 0;
+uint8_t discRes = 0;
 
 /*****************************************************************************
  * Local prototypes
@@ -54,16 +54,16 @@ static uint8_t scanRes = 0;
 
 /** reset the list **/
 void EBS_connMgr_resetList() {
-	scanRes = 0;
+	discRes = 0;
 	for (uint8_t i = 0; i < MAX_CONNS; i++) {
 		connList[i].addrType = DEFAULT_ADTYPE;
 		connList[i].connHdl = GAP_CONNHANDLE_INIT;
 		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
 		connList[i].svcEndHdl = GATT_INVALID_HANDLE;
-		connList[i].state = POLL_STATE_IDLE;
+		connList[i].isBusy = 0;
 		connList[i].data = 0;
 		memset(connList[i].addr, 0x00, B_ADDR_LEN);
-		memset(connList[i].txDevID, 0x00, ETX_DEVID_LEN);
+		memset(connList[i].devID, 0x00, ETX_DEVID_LEN);
 	}
 }
 
@@ -149,19 +149,19 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 	uint8_t i;
 
 	// If result count not at max
-	if (scanRes < MAX_CONNS)
+	if (discRes < MAX_CONNS)
 	{
 		// Check if device is already in scan results
-		for (i = 0; i < scanRes; i++)
+		for (i = 0; i < discRes; i++)
 			if (memcmp(pAddr, connList[i].addr, B_ADDR_LEN) == 0)
 				return;
 
 		// Add addr to scan result list
-		memcpy(connList[scanRes].addr, pAddr, B_ADDR_LEN);
-		connList[scanRes].addrType = addrType;
+		memcpy(connList[discRes].addr, pAddr, B_ADDR_LEN);
+		connList[discRes].addrType = addrType;
 
 		// Increment scan result count
-		scanRes++;
+		discRes++;
 	}
 }
 
@@ -185,7 +185,7 @@ void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen
 				pEvtData++;
 
 				//Copy device id from the scan response data
-				memcpy(pETX->txDevID, pEvtData, ETX_DEVID_LEN);
+				memcpy(pETX->devID, pEvtData, ETX_DEVID_LEN);
 			}
 		} else {
 			// Go to next scan response item
@@ -198,7 +198,7 @@ void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen
 EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl) {
 	uint8_t index = 0;
 	EtxInfo_t *rtn = NULL;
-	for (index = 0; index < scanRes; index++)
+	for (index = 0; index < discRes; index++)
 		if (connList[index].connHdl == tConnHdl)
 			rtn = connList + index;
 	return rtn;
@@ -208,8 +208,19 @@ EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl) {
 EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
 	uint8_t index = 0;
 	EtxInfo_t *rtn = NULL;
-	for (index = 0; index < scanRes; index++)
+	for (index = 0; index < discRes; index++)
 		if (memcmp(pAddr, connList[index].addr, B_ADDR_LEN) == 0)
 			rtn = connList + index;
 	return rtn;
 }
+
+/** check all conns poll state **/
+uint8_t EBS_connMgr_checkAllPollState() {
+	uint8_t remainConns = 0x00;
+	for (int i = 0; i < MAX_CONNS; i++)
+		remainConns += connList[i].isBusy;
+
+	return remainConns;
+}
+
+

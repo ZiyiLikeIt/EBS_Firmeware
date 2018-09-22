@@ -30,10 +30,11 @@
 // Simple BLE Central Task Events
 #define EBS_PAIRING_STATE_EVT     		0x0001
 #define EBS_STATE_CHANGE_EVT          	0x0002
-#define EBS_CONNECTING_TIMEOUT_EVT	  	0x0004
+#define EBS_NEW_POLL_EVT	  			0x0004
 #define EBS_GAP_STATE_CHG_EVT			0x0008
 #define EBS_UMSG_RECV_EVT				0x0010
-#define EBS_CONN_DONE_EVT				0x0020
+#define EBS_UMSG_SEND_EVT				0x0020
+#define EBS_POLL_DISABLE_EVT			0x0040
 
 #if defined (NPI_USE_UART) && defined(NPI_ENABLE)
 //events that TL will use to control the driver
@@ -48,8 +49,10 @@
 // Max number of connections
 #define MAX_CONNS		4
 
-// Scan duration in ms
-#define DEFAULT_SCAN_DURATION                 10000
+// Discovery duration in ms
+#define DISC_DURATION 			2000
+// Polling duration in ms
+#define POLLING_DURATION		5000
 
 // Discovery mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -120,12 +123,11 @@ typedef enum EbsState_t{
 	APP_STATE_POLL
 } EbsState_t;
 
-// Polling states
-typedef enum EbsPollState_t{
-	POLL_STATE_IDLE,
-	POLL_STATE_BUSY,
-	POLL_STATE_END
-} EbsPollState_t;
+//// Polling states
+//typedef enum EbsPollState_t{
+//	POLL_STATE_IDLE,
+//	POLL_STATE_BUSY
+//} EbsPollState_t;
 /*****************************************************************************
  * GATT Profile
  */

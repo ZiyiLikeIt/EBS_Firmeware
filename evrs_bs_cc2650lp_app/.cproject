@@ -73,14 +73,14 @@
 								<option id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE.1547982405" name="Pre-define NAME (--define, -D)" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC13XX_CC26XX_SYMBOLS}"/>
 									<listOptionValue builtIn="false" value="NPI_USE_UART"/>
-									<listOptionValue builtIn="false" value="xNPI_ENABLE"/>
+									<listOptionValue builtIn="false" value="NPI_ENABLE"/>
 									<listOptionValue builtIn="false" value="USE_ICALL"/>
 									<listOptionValue builtIn="false" value="MAX_PDU_SIZE=162"/>
 									<listOptionValue builtIn="false" value="xPOWER_SAVING"/>
 									<listOptionValue builtIn="false" value="GAPCENTRALROLE_TASK_STACK_SIZE=510"/>
 									<listOptionValue builtIn="false" value="HEAPMGR_SIZE=0"/>
-									<listOptionValue builtIn="false" value="xDisplay_DISABLE_ALL"/>
-									<listOptionValue builtIn="false" value="xBOARD_DISPLAY_EXCLUDE_UART"/>
+									<listOptionValue builtIn="false" value="Display_DISABLE_ALL"/>
+									<listOptionValue builtIn="false" value="BOARD_DISPLAY_EXCLUDE_UART"/>
 									<listOptionValue builtIn="false" value="BOARD_DISPLAY_EXCLUDE_LCD"/>
 									<listOptionValue builtIn="false" value="GAPCENTRALROLE_NUM_RSSI_LINKS=1"/>
 									<listOptionValue builtIn="false" value="ICALL_MAX_NUM_TASKS=3"/>
