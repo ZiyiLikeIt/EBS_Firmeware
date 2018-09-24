@@ -60,7 +60,7 @@ void EBS_connMgr_resetList() {
 		connList[i].connHdl = GAP_CONNHANDLE_INIT;
 		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
 		connList[i].svcEndHdl = GATT_INVALID_HANDLE;
-		connList[i].isBusy = 0;
+		connList[i].state = POLL_STATE_IDLE;
 		connList[i].data = 0;
 		memset(connList[i].addr, 0x00, B_ADDR_LEN);
 		memset(connList[i].devID, 0x00, ETX_DEVID_LEN);
@@ -215,10 +215,11 @@ EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
 }
 
 /** check all conns poll state **/
-uint8_t EBS_connMgr_checkAllPollState() {
+uint8_t EBS_connMgr_checkActiveConns() {
 	uint8_t remainConns = 0x00;
 	for (int i = 0; i < MAX_CONNS; i++)
-		remainConns += connList[i].isBusy;
+		if (connList[i].state != POLL_STATE_IDLE)
+			remainConns++;
 
 	return remainConns;
 }

@@ -32,7 +32,7 @@ typedef struct EtxInfo_t{
 	uint16_t connHdl;	// connection handle
 	uint16_t svcStartHdl;
 	uint16_t svcEndHdl;
-	uint8_t isBusy; // connection state
+	EbsPollState_t state; // connection state
 	uint8_t data;
 } EtxInfo_t;
 
@@ -56,5 +56,5 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType);
 void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen);
 EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl);
 EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr);
-uint8_t EBS_connMgr_checkAllPollState();
+uint8_t EBS_connMgr_checkActiveConns(void);
 

@@ -1,18 +1,18 @@
 /*****************************************************************************
  * 
- * @filepath 	/evrs_bs_cc2650lp_app/src/ebs_umsg.h
+ * @filepath 	/evrs_bs_cc2650lp_app/src/ebs_predefined.h
  * 
  * @project 	evrs_bs_cc2650lp_app
  * 
- * @brief 		TODO
+ * @brief 		predefined symbols of EBS
  * 
  * @date 		22 Sep. 2018
  * 
  * @author		Ziyi@outlook.com.au
  *
  ****************************************************************************/
-#ifndef EBSPREDEFINEd_H
-#define EBSPREDEFINEd_H
+#ifndef EBSPREDEFINED_H
+#define EBSPREDEFINED_H
 
 /*****************************************************************************
  * EBS Tasks
@@ -21,7 +21,7 @@
 #define EBS_TASK_PRIORITY                     1
 
 #ifndef EBS_TASK_STACK_SIZE
-#define EBS_TASK_STACK_SIZE                   864
+#define EBS_TASK_STACK_SIZE                   2048
 #endif
 
 /*****************************************************************************
@@ -47,10 +47,10 @@
  * BLE Constants
  */
 // Max number of connections
-#define MAX_CONNS		4
+#define MAX_CONNS		2
 
 // Discovery duration in ms
-#define DISC_DURATION 			2000
+#define DISC_DURATION 			10000
 // Polling duration in ms
 #define POLLING_DURATION		5000
 
@@ -70,7 +70,7 @@
 #define LINK_WHITE_LIST               FALSE
 
 // Initial minimum connection interval (units of 1.25 ms.)
-#define INITIAL_MIN_CONN_INTERVAL 	      	  16
+#define INITIAL_MIN_CONN_INTERVAL 	      	  32
 
 // Initial minimum connection interval (units of 1.25 ms.)
 #define INITIAL_MAX_CONN_INTERVAL             400
@@ -80,9 +80,6 @@
 
 // Initial supervision timeout (units of 1.25 ms)
 #define INITIAL_CONN_TIMEOUT          	      700
-
-// Default RSSI polling period in ms
-#define DEFAULT_RSSI_PERIOD                   1000
 
 // Whether to enable automatic parameter update request when a connection is
 // formed
@@ -103,11 +100,8 @@
 // request is enabled
 #define DEFAULT_UPDATE_CONN_TIMEOUT           600
 
-// Default service discovery timer delay in ms
-#define SVC_DISCOVERY_DELAY           500
-
 // TRUE to filter discovery results on desired service UUID
-#define DEV_DISC_BY_SVC_UUID          TRUE
+#define DEV_DISC_BY_SVC_UUID          		TRUE
 
 // Length of bd addr as a string
 #define B_ADDR_STR_LEN                        15
@@ -123,11 +117,14 @@ typedef enum EbsState_t{
 	APP_STATE_POLL
 } EbsState_t;
 
-//// Polling states
-//typedef enum EbsPollState_t{
-//	POLL_STATE_IDLE,
-//	POLL_STATE_BUSY
-//} EbsPollState_t;
+// Polling states
+typedef enum EbsPollState_t{
+	POLL_STATE_IDLE,
+	POLL_STATE_ESTAB,
+	POLL_STATE_SVC,
+	POLL_STATE_READ,
+	POLL_STATE_END
+} EbsPollState_t;
 /*****************************************************************************
  * GATT Profile
  */
@@ -168,4 +165,4 @@ typedef enum ProfileId_t{
 
 #endif //TL
 
-#endif //EBSPREDEFINEd_H
+#endif //EBSPREDEFINED_H
