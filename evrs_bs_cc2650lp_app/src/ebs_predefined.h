@@ -36,23 +36,21 @@
 #define EBS_UMSG_SEND_EVT				0x0020
 #define EBS_POLL_DISABLE_EVT			0x0040
 
-#if defined (NPI_USE_UART) && defined(NPI_ENABLE)
 //events that TL will use to control the driver
 #define MRDY_EVT       	      		0x0100
 #define TRANSPORT_RX_EVT       		0x0200
 #define TRANSPORT_TX_DONE_EVT  		0x0400
-#endif //TL
 
 /*****************************************************************************
  * BLE Constants
  */
 // Max number of connections
 #ifndef MAX_NUM_BLE_CONNS
-#define MAX_NUM_BLE_CONNS		2
+#define MAX_NUM_BLE_CONNS		1
 #endif
 
 // Discovery duration in ms
-#define DISC_DURATION 			10000
+#define DISC_DURATION 			1000
 // Polling duration in ms
 #define POLLING_DURATION		5000
 
@@ -149,8 +147,6 @@ typedef enum ProfileId_t{
 /*****************************************************************************
  * UMSG
  */
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
-
 #define UMSG_BUFF_SIZE   	16
 
 #define EBC_UMSG_READY		0x01
@@ -165,6 +161,5 @@ typedef enum ProfileId_t{
 #define EBS_UMSG_ACK_LEN	4
 #define EBS_UMSG_RSP_LEN	6
 
-#endif //TL
 
 #endif //EBSPREDEFINED_H

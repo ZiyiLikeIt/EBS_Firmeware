@@ -35,7 +35,7 @@
  * Global variables
  */
 // Discovered ETX List
-EtxInfo_t connList[MAX_NUM_BLE_CONNS];
+EtxInfo_t connInfo;
 
 /*****************************************************************************
  * Local variables
@@ -54,16 +54,15 @@ uint8_t discRes = 0;
 
 /** reset the list **/
 void EBS_connMgr_resetList() {
-	discRes = 0;
 	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
-		connList[i].addrType = DEFAULT_ADTYPE;
-		connList[i].connHdl = GAP_CONNHANDLE_INIT;
-		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
-		connList[i].svcEndHdl = GATT_INVALID_HANDLE;
-		connList[i].state = POLL_STATE_IDLE;
-		connList[i].data = 0;
-		memset(connList[i].addr, 0x00, B_ADDR_LEN);
-		memset(connList[i].devID, 0x00, ETX_DEVID_LEN);
+		connInfo.addrType = DEFAULT_ADTYPE;
+		connInfo.connHdl = GAP_CONNHANDLE_INIT;
+		connInfo.svcStartHdl = GATT_INVALID_HANDLE;
+		connInfo.svcEndHdl = GATT_INVALID_HANDLE;
+		connInfo.state = POLL_STATE_IDLE;
+		connInfo.data = 0;
+		memset(connInfo.addr, 0x00, B_ADDR_LEN);
+		memset(connInfo.devID, 0x00, ETX_DEVID_LEN);
 	}
 }
 
@@ -146,27 +145,16 @@ bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen) {
 
 /** Add a device to the etx discovery result list **/
 void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
-	uint8_t i;
+	if (memcmp(pAddr, connInfo.addr, B_ADDR_LEN) == 0)
+		return;
 
-	// If result count not at max
-	if (discRes < MAX_NUM_BLE_CONNS)
-	{
-		// Check if device is already in scan results
-		for (i = 0; i < discRes; i++)
-			if (memcmp(pAddr, connList[i].addr, B_ADDR_LEN) == 0)
-				return;
-
-		// Add addr to scan result list
-		memcpy(connList[discRes].addr, pAddr, B_ADDR_LEN);
-		connList[discRes].addrType = addrType;
-
-		// Increment scan result count
-		discRes++;
-	}
+	// Add addr to scan result list
+	memcpy(connInfo.addr, pAddr, B_ADDR_LEN);
+	connInfo.addrType = addrType;
 }
 
 /** add txDevID to the list **/
-void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen) {
+void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen) {
 	uint8_t scanRspLen;
 	uint8_t scanRspType;
 	uint8_t *pEnd;
@@ -185,7 +173,7 @@ void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen
 				pEvtData++;
 
 				//Copy device id from the scan response data
-				memcpy(pETX->devID, pEvtData, ETX_DEVID_LEN);
+				memcpy(connInfo.devID, pEvtData, ETX_DEVID_LEN);
 			}
 		} else {
 			// Go to next scan response item
@@ -194,34 +182,34 @@ void EBS_connMgr_addDeviceID(EtxInfo_t* pETX, uint8_t *pEvtData, uint8_t dataLen
 	}
 }
 
-/** find element using connHdl **/
-EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl) {
-	uint8_t index = 0;
-	EtxInfo_t *rtn = NULL;
-	for (index = 0; index < discRes; index++)
-		if (connList[index].connHdl == tConnHdl)
-			rtn = connList + index;
-	return rtn;
-}
-
-/** find element using addr **/
-EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
-	uint8_t index = 0;
-	EtxInfo_t *rtn = NULL;
-	for (index = 0; index < discRes; index++)
-		if (memcmp(pAddr, connList[index].addr, B_ADDR_LEN) == 0)
-			rtn = connList + index;
-	return rtn;
-}
-
-/** check all conns poll state **/
-uint8_t EBS_connMgr_checkActiveConns() {
-	uint8_t remainConns = 0x00;
-	for (int i = 0; i < MAX_NUM_BLE_CONNS; i++)
-		if (connList[i].state != POLL_STATE_IDLE)
-			remainConns++;
-
-	return remainConns;
-}
+///** find element using connHdl **/
+//EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl) {
+//	uint8_t index = 0;
+//	EtxInfo_t *rtn = NULL;
+//	for (index = 0; index < discRes; index++)
+//		if (connList[index].connHdl == tConnHdl)
+//			rtn = connList + index;
+//	return rtn;
+//}
+//
+///** find element using addr **/
+//EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
+//	uint8_t index = 0;
+//	EtxInfo_t *rtn = NULL;
+//	for (index = 0; index < discRes; index++)
+//		if (memcmp(pAddr, connInfo.addr, B_ADDR_LEN) == 0)
+//			rtn = connList + index;
+//	return rtn;
+//}
+//
+///** check all conns poll state **/
+//uint8_t EBS_connMgr_checkActiveConns() {
+//	uint8_t remainConns = 0x00;
+//	for (int i = 0; i < MAX_NUM_BLE_CONNS; i++)
+//		if (connList[i].state != POLL_STATE_IDLE)
+//			remainConns++;
+//
+//	return remainConns;
+//}
 
 

@@ -162,7 +162,7 @@ int main()
  */
 void AssertHandler(uint8 assertCause, uint8 assertSubcause)
 {
-  /*
+	/*
 	// Open the display if the app has not already done so
   if ( !dispHandle )
   {
