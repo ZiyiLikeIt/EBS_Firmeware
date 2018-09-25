@@ -72,7 +72,7 @@ typedef struct EbsEvt_t {
  * EXTERNAL VARIABLES
  */
 // Discovered ETX List
-extern EtxInfo_t connList[MAX_CONNS];
+extern EtxInfo_t connList[MAX_NUM_BLE_CONNS];
 
 extern uint8_t discRes;
 
@@ -230,7 +230,7 @@ static void EBS_init(void) {
 
 	// Setup Central Profile
 	{
-		uint8_t maxScanRes = MAX_CONNS;
+		uint8_t maxScanRes = MAX_NUM_BLE_CONNS;
 
 		GAPCentralRole_SetParameter(GAPCENTRALROLE_MAX_SCAN_RES,
 				sizeof(uint8_t), &maxScanRes);
@@ -661,7 +661,7 @@ static void EBS_Disc_processStart(void) {
 
 /** activate conns **/
 static void EBS_Poll_connActivate(void) {
-	for (uint8_t i = 0; i < MAX_CONNS; i++) {
+	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
 		bStatus_t rtn = GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE,
 				LINK_WHITE_LIST, connList[i].addrType, connList[i].addr);
 		if (rtn == SUCCESS)
@@ -676,7 +676,7 @@ static void EBS_Poll_enquireStart(EtxInfo_t* pCurrConn) {
 			LO_UINT16(EVRSPROFILE_SERV_UUID),
 			HI_UINT16(EVRSPROFILE_SERV_UUID) };
 	// Start polling process
-	for (uint8_t i = 0; i < MAX_CONNS; i++) {
+	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
 		bStatus_t rtn = GATT_DiscPrimaryServiceByUUID(pCurrConn->connHdl, uuid,
 					ATT_BT_UUID_SIZE, selfEntity);
 		if (rtn == SUCCESS)

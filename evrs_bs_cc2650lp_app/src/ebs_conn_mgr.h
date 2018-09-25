@@ -41,7 +41,7 @@ typedef struct EtxInfo_t{
  * Global variables
  */
 // Discovered ETX List
-extern EtxInfo_t connList[MAX_CONNS];
+extern EtxInfo_t connList[MAX_NUM_BLE_CONNS];
 extern uint8_t discRes;
 
 

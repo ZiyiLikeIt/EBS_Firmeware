@@ -47,7 +47,9 @@
  * BLE Constants
  */
 // Max number of connections
-#define MAX_CONNS		2
+#ifndef MAX_NUM_BLE_CONNS
+#define MAX_NUM_BLE_CONNS		2
+#endif
 
 // Discovery duration in ms
 #define DISC_DURATION 			10000

@@ -72,6 +72,7 @@
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE.1547982405" name="Pre-define NAME (--define, -D)" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC13XX_CC26XX_SYMBOLS}"/>
+									<listOptionValue builtIn="false" value="MAX_NUM_BLE_CONNS=2"/>
 									<listOptionValue builtIn="false" value="NPI_USE_UART"/>
 									<listOptionValue builtIn="false" value="NPI_ENABLE"/>
 									<listOptionValue builtIn="false" value="USE_ICALL"/>

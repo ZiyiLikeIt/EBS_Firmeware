@@ -35,7 +35,7 @@
  * Global variables
  */
 // Discovered ETX List
-EtxInfo_t connList[MAX_CONNS];
+EtxInfo_t connList[MAX_NUM_BLE_CONNS];
 
 /*****************************************************************************
  * Local variables
@@ -55,7 +55,7 @@ uint8_t discRes = 0;
 /** reset the list **/
 void EBS_connMgr_resetList() {
 	discRes = 0;
-	for (uint8_t i = 0; i < MAX_CONNS; i++) {
+	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
 		connList[i].addrType = DEFAULT_ADTYPE;
 		connList[i].connHdl = GAP_CONNHANDLE_INIT;
 		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
@@ -149,7 +149,7 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 	uint8_t i;
 
 	// If result count not at max
-	if (discRes < MAX_CONNS)
+	if (discRes < MAX_NUM_BLE_CONNS)
 	{
 		// Check if device is already in scan results
 		for (i = 0; i < discRes; i++)
@@ -217,7 +217,7 @@ EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
 /** check all conns poll state **/
 uint8_t EBS_connMgr_checkActiveConns() {
 	uint8_t remainConns = 0x00;
-	for (int i = 0; i < MAX_CONNS; i++)
+	for (int i = 0; i < MAX_NUM_BLE_CONNS; i++)
 		if (connList[i].state != POLL_STATE_IDLE)
 			remainConns++;
 
