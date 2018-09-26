@@ -21,7 +21,7 @@ class SerRead(threading.Thread):
 		self.exFlag = 1;
 
 		
-ser = serial.Serial('COM6', 119200, timeout = 5)
+ser = serial.Serial('COM12', 119200, timeout = 5)
 serRead = SerRead()
 serRead.start()
 

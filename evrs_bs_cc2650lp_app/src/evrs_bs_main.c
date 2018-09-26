@@ -44,7 +44,7 @@
 
 #include "ebs_conn_mgr.h"
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 #include "tl.h"
 #endif //TL
 
@@ -76,7 +76,7 @@ extern EtxInfo_t connList[MAX_NUM_BLE_CONNS];
 
 extern uint8_t discRes;
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 //used to store data read from transport layer
 // extern uint8_t appRxBuf[APP_TL_BUFF_SIZE];
 #endif //TL
@@ -148,7 +148,7 @@ static void EBS_Poll_enquireStart(EtxInfo_t* pCurrConn);
 static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg);
 
 /** UMSG Functions **/
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 static void EBS_CB_umsgReceive(void);
 static void EBS_EVT_umsgProcess(uint8_t* pData);
 static void EBS_Poll_userDataFlush(EtxInfo_t* pCurConn);
@@ -169,7 +169,7 @@ static gapBondCBs_t EBS_bondCB = {
 		EBS_CB_pairStateChange	// Pairing state callback
 		};
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 static TLCBs_t EBS_TLCBs = {
 		EBS_CB_umsgReceive // parse data read from transport layer
 		};
@@ -288,7 +288,7 @@ static void EBS_init(void) {
 	Board_ledControl(BOARD_LED_ID_G, BOARD_LED_STATE_OFF, 0);
 	//Board_ledControl(BOARD_LED_ID_G, BOARD_LED_STATE_FLASH, 300);
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 	//initialize and pass information to TL
 	TLinit(&sem, &EBS_TLCBs, TRANSPORT_TX_DONE_EVT,
 			TRANSPORT_RX_EVT, MRDY_EVT);
@@ -308,7 +308,7 @@ static void EBS_taskFxn(UArg a0, UArg a1) {
 		// ICall_signal() function is called onto the semaphore.
 		ICall_Errno errno = ICall_wait(ICALL_TIMEOUT_FOREVER);
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 		//TL handles driver events. this must be done first
 		TL_handleISRevent();
 #endif //TL
@@ -414,7 +414,7 @@ static void EBS_processAppMsg(EbsEvt_t *pMsg) {
 			EBS_EVT_pollingDisable();
 		break;
 
-		#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+		#if defined (NPI_USE_UART)
 		case EBS_UMSG_RECV_EVT:
 			EBS_EVT_umsgProcess(pMsg->pData);
 			ICall_free(pMsg->pData);
@@ -513,10 +513,8 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 				if (pEvent->gap.hdr.status == SUCCESS) {
 					EtxInfo_t* pCurConn = EBS_connMgr_findByAddr(
 							pEvent->linkCmpl.devAddr);
-					if (pCurConn == NULL) {
-						//GAPCentralRole_TerminateLink(pEvent->linkCmpl.connectionHandle);
+					if (pCurConn == NULL)
 						break;
-					}
 					pCurConn->connHdl = pEvent->linkCmpl.connectionHandle;
 					EBS_Poll_enquireStart(pCurConn);
 					uout1("Tx ID 0x%08x Connected",
@@ -524,6 +522,17 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 									pCurConn->devID[2],pCurConn->devID[3]));
 				} else {
 					uout1("Connect Failed: 0x%02x", pEvent->gap.hdr.status);
+				}
+
+				for(uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
+					if (connList[i].state == POLL_STATE_IDLE) {
+						bStatus_t rtn = GAPCentralRole_EstablishLink(
+								LINK_HIGH_DUTY_CYCLE, LINK_WHITE_LIST,
+								connList[i].addrType, connList[i].addr);
+						if (rtn == SUCCESS)
+							connList[i].state = POLL_STATE_ESTAB;
+						break;
+					}
 				}
 			}
 
@@ -661,11 +670,11 @@ static void EBS_Disc_processStart(void) {
 
 /** activate conns **/
 static void EBS_Poll_connActivate(void) {
-	for (uint8_t i = 0; i < MAX_NUM_BLE_CONNS; i++) {
+	if (connList[0].state == POLL_STATE_IDLE) {
 		bStatus_t rtn = GAPCentralRole_EstablishLink(LINK_HIGH_DUTY_CYCLE,
-				LINK_WHITE_LIST, connList[i].addrType, connList[i].addr);
+				LINK_WHITE_LIST, connList[0].addrType, connList[0].addr);
 		if (rtn == SUCCESS)
-			connList[i].state = POLL_STATE_ESTAB;
+			connList[0].state = POLL_STATE_ESTAB;
 	}
 }
 
@@ -731,7 +740,7 @@ static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg) {
 			if ((pMsg->hdr.status == bleProcedureComplete)
 					|| (pMsg->method == ATT_ERROR_RSP)) {
 				//pCurConn->state = POLL_STATE_IDLE;
-				#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+				#if defined (NPI_USE_UART)
 				EBS_Poll_userDataFlush(pCurConn);
 				#endif
 			}
@@ -739,7 +748,7 @@ static void EBS_Poll_enquireMsgProcess(gattMsgEvent_t *pMsg) {
 	}
 }
 
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 /*****************************************************************************
  * UART communication
  */

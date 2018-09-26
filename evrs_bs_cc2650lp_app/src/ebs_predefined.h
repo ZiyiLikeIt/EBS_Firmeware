@@ -21,7 +21,7 @@
 #define EBS_TASK_PRIORITY                     1
 
 #ifndef EBS_TASK_STACK_SIZE
-#define EBS_TASK_STACK_SIZE                   2048
+#define EBS_TASK_STACK_SIZE			4096
 #endif
 
 /*****************************************************************************
@@ -121,6 +121,7 @@ typedef enum EbsState_t{
 
 // Polling states
 typedef enum EbsPollState_t{
+	POLL_STATE_INIT,
 	POLL_STATE_IDLE,
 	POLL_STATE_ESTAB,
 	POLL_STATE_SVC,
@@ -149,7 +150,7 @@ typedef enum ProfileId_t{
 /*****************************************************************************
  * UMSG
  */
-#if defined (NPI_USE_UART) && defined (NPI_ENABLE)
+#if defined (NPI_USE_UART)
 
 #define UMSG_BUFF_SIZE   	16
 

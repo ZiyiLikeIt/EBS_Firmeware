@@ -60,7 +60,7 @@ void EBS_connMgr_resetList() {
 		connList[i].connHdl = GAP_CONNHANDLE_INIT;
 		connList[i].svcStartHdl = GATT_INVALID_HANDLE;
 		connList[i].svcEndHdl = GATT_INVALID_HANDLE;
-		connList[i].state = POLL_STATE_IDLE;
+		connList[i].state = POLL_STATE_INIT;
 		connList[i].data = 0;
 		memset(connList[i].addr, 0x00, B_ADDR_LEN);
 		memset(connList[i].devID, 0x00, ETX_DEVID_LEN);
@@ -159,6 +159,7 @@ void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType) {
 		// Add addr to scan result list
 		memcpy(connList[discRes].addr, pAddr, B_ADDR_LEN);
 		connList[discRes].addrType = addrType;
+		connList[discRes].state = POLL_STATE_IDLE;
 
 		// Increment scan result count
 		discRes++;
@@ -218,7 +219,7 @@ EtxInfo_t* EBS_connMgr_findByAddr(uint8_t* pAddr) {
 uint8_t EBS_connMgr_checkActiveConns() {
 	uint8_t remainConns = 0x00;
 	for (int i = 0; i < MAX_NUM_BLE_CONNS; i++)
-		if (connList[i].state != POLL_STATE_IDLE)
+		if (connList[i].state != POLL_STATE_INIT)
 			remainConns++;
 
 	return remainConns;
