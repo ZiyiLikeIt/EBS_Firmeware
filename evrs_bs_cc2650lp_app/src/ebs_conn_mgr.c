@@ -28,8 +28,9 @@
 #define DEFAULT_ADTYPE		0
 
 /** advert data types **/
-#define ETX_ADTYPE_DEST			0xAF
-#define ETX_ADTYPE_DEVID		0xAE
+#define ETX_ADMSG_DEST			0xAC
+#define ETX_ADMSG_DEVID			0xAA
+#define ETX_ADMSG_DATA			0xA5
 
 /*****************************************************************************
  * Global variables
@@ -129,7 +130,7 @@ bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen) {
 			adType = *pEvtData;
 			//Display_print1(dispHdl, ii+9, 0, "0x%02x",adType);
 			// If AD type is for local name
-			if (adType == ETX_ADTYPE_DEST) {
+			if (adType == ETX_ADMSG_DEST) {
 				pEvtData++;
 				// For base station identifier in the advert data
 				return (*pEvtData == BSID);
@@ -141,6 +142,37 @@ bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen) {
 	}
 	// No name found
 	return FALSE;
+}
+
+/** check bsID of received data **/
+void EBS_connMgr_addUserData(uint8_t *pEvtData, uint8_t dataLen) {
+	uint8_t adLen;
+	uint8_t adType;
+	uint8_t *pEnd;
+
+	pEnd = pEvtData + dataLen - 1;
+
+	// While end of data not reached
+	while (pEvtData < pEnd) {
+		// Get length of next data item
+		adLen = *pEvtData++;
+		if (adLen > 0) {
+			adType = *pEvtData;
+			//Display_print1(dispHdl, ii+9, 0, "0x%02x",adType);
+			// If AD type is for local name
+			if (adType == ETX_ADMSG_DATA) {
+				pEvtData++;
+				connInfo.data = *pEvtData;
+				//return (*pEvtData == BSID);
+			} else if (adType == ETX_ADMSG_DEVID) {
+				pEvtData++;
+				memcpy(connInfo.devID, pEvtData, ETX_DEVID_LEN);
+			} else {
+				// Go to next item
+				pEvtData += adLen;
+			}
+		}
+	}
 }
 
 /** Add a device to the etx discovery result list **/
@@ -168,7 +200,7 @@ void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen) {
 			scanRspType = *pEvtData;
 
 			// If scan response type is for local name
-			if (scanRspType == ETX_ADTYPE_DEVID) {
+			if (scanRspType == ETX_ADMSG_DEVID) {
 				//Set name length in the device struct.
 				pEvtData++;
 

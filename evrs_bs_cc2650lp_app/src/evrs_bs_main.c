@@ -105,6 +105,9 @@ uint8_t BSID = 0x00;
 // uart msg buffer
 uint8_t UBuf[UMSG_BUFF_SIZE] = {0};
 
+//
+uint8_t adBuf[31] = {0};
+
 /*********************************************************************
  * @TAG Local Functions
  */
@@ -223,8 +226,13 @@ static void EBS_init(void) {
 	}
 
 	// Setup GAP
-	GAP_SetParamValue(TGAP_GEN_DISC_SCAN, DISC_DURATION);
-	GAP_SetParamValue(TGAP_LIM_DISC_SCAN, DISC_DURATION);
+	GAP_SetParamValue(TGAP_GEN_DISC_SCAN, 1000);
+	GAP_SetParamValue(TGAP_LIM_DISC_SCAN, 1000);
+	GAP_SetParamValue(TGAP_FILTER_ADV_REPORTS, FALSE);
+	GAP_SetParamValue(TGAP_LIM_DISC_SCAN_INT, 176);
+	GAP_SetParamValue(TGAP_LIM_DISC_SCAN_WIND, 176);
+	GAP_SetParamValue(TGAP_GEN_DISC_SCAN_INT, 176);
+	GAP_SetParamValue(TGAP_GEN_DISC_SCAN_WIND, 176);
 	GGS_SetParameter(GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN,
 			(void *) attDeviceName);
 
@@ -458,26 +466,31 @@ static void EBS_EVT_GAPRoleChange(gapCentralRoleEvent_t *pEvent) {
 		case GAP_DEVICE_INFO_EVENT:
 			if (appState == APP_STATE_DISC) {
 				//Find tx device address by UUID
-				if (EBS_connMgr_findSvcUuid(EVRSPROFILE_SERV_UUID,
-						pEvent->deviceInfo.pEvtData, pEvent->deviceInfo.dataLen)
-						&& EBS_connMgr_checkBSID(BSID, pEvent->deviceInfo.pEvtData,
+				if (EBS_connMgr_checkBSID(BSID, pEvent->deviceInfo.pEvtData,
 								pEvent->deviceInfo.dataLen)) {
 					EBS_connMgr_addAddr(pEvent->deviceInfo.addr,
 							pEvent->deviceInfo.addrType);
+//					memcpy(adBuf,pEvent->deviceInfo.pEvtData,pEvent->deviceInfo.dataLen);
+//					EBS_connMgr_addUserData(pEvent->deviceInfo.pEvtData,
+//							pEvent->deviceInfo.dataLen);
+					connInfo.data = pEvent->deviceInfo.pEvtData[11];
+					memcpy(connInfo.devID,(pEvent->deviceInfo.pEvtData)+5,
+							4);
+
 				}
-				if (memcmp(pEvent->deviceInfo.addr, connInfo.addr,
-						B_ADDR_LEN) == 0) {
-					//Update deviceInfo entry with the name
-					EBS_connMgr_addDeviceID(pEvent->deviceInfo.pEvtData,
-							pEvent->deviceInfo.dataLen);
-				}
+//				if (memcmp(pEvent->deviceInfo.addr, connInfo.addr,
+//						B_ADDR_LEN) == 0) {
+//					//Update deviceInfo entry with the name
+//					EBS_connMgr_addDeviceID(pEvent->deviceInfo.pEvtData,
+//							pEvent->deviceInfo.dataLen);
+//				}
 			}
 
 		break;
 
 		case GAP_DEVICE_DISCOVERY_EVENT:
 			if (appState == APP_STATE_DISC) {
-				if (connInfo.devID[3] == 0x95)
+				if (connInfo.data != 0x00)
 					EBS_CBm_appStateChange(APP_STATE_POLL);
 				else
 					EBS_Disc_processStart();
@@ -602,7 +615,7 @@ static void EBS_EVT_appStateChange(EbsState_t newState) {
             // uout0("ebsState = APP_STATE_POLL");
             Board_ledControl(BOARD_LED_ID_G, BOARD_LED_STATE_ON, 0);
             Board_ledControl(BOARD_LED_ID_R, BOARD_LED_STATE_OFF, 0);
-            EBS_Poll_connActivate();
+            //EBS_Poll_connActivate();
             break;
 
         default:
@@ -619,7 +632,7 @@ static void EBS_Disc_processStart(void) {
 	EBS_connMgr_resetList(); //Clear old scan results
 	// uout0("Discovering...");
 	GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
-			DEFAULT_DISCOVERY_ACTIVE_SCAN, DEFAULT_DISCOVERY_WHITE_LIST);
+			FALSE, DEFAULT_DISCOVERY_WHITE_LIST);
 }
 
 /** activate conns **/

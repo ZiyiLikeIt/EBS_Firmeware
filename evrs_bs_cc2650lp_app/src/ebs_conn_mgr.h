@@ -49,6 +49,7 @@ extern EtxInfo_t connList;
 void EBS_connMgr_resetList();
 bool EBS_connMgr_findSvcUuid(uint16_t uuid, uint8_t *pData, uint8_t dataLen);
 bool EBS_connMgr_checkBSID(uint8_t BSID, uint8_t *pEvtData, uint8_t dataLen);
+void EBS_connMgr_addUserData(uint8_t *pEvtData, uint8_t dataLen);
 void EBS_connMgr_addAddr(uint8_t *pAddr, uint8_t addrType);
 void EBS_connMgr_addDeviceID(uint8_t *pEvtData, uint8_t dataLen);
 //EtxInfo_t* EBS_connMgr_findByConnHdl(uint16_t tConnHdl);
